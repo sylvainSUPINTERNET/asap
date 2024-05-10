@@ -6,6 +6,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @SpringBootApplication
 public class AsapApplication implements CommandLineRunner {
@@ -28,6 +29,16 @@ public class AsapApplication implements CommandLineRunner {
 		characteristicValueIndex.put("CC_01", 4);
 		characteristicValueIndex.put("CC_02", 5);
 		characteristicValueIndex.put("XX_01", 6);
+
+		Object2ObjectRBTreeMap<Integer, String> characteristicValueIndexReversed = new Object2ObjectRBTreeMap<>();
+		characteristicValueIndexReversed.put(0, "AA_01");
+		characteristicValueIndexReversed.put(1, "AA_02");
+		characteristicValueIndexReversed.put(2, "BB_02");
+		characteristicValueIndexReversed.put(3, "BB_03");
+		characteristicValueIndexReversed.put(4, "CC_01");
+		characteristicValueIndexReversed.put(5, "CC_02");
+		characteristicValueIndexReversed.put(6, "XX_01");
+
 
 
 		List<Row> pseudoTable = new ArrayList<>();
@@ -83,6 +94,11 @@ public class AsapApplication implements CommandLineRunner {
 		table2.add(row4);
 
 
+		/*
+		 * AA | BB | CC | XX
+		 * ------------
+		 * 01 | 02 | 01   01
+		 */
 		List<Row> table3 = new ArrayList<>();
 		Row row5 = new Row();
 		row5.setActive(true);
@@ -94,16 +110,25 @@ public class AsapApplication implements CommandLineRunner {
 		row5.setBitset(b5);
 		table3.add(row5);
 
+
 		/*
-		 * AA | BB | CC | XX
+		 * AA | XX
 		 * ------------
-		 * 01 | 02 | 01   01
+		 * 01 | 01
 		 */
+		List<Row> table4 = new ArrayList<>();
+		Row row6 = new Row();
+		row6.setActive(true);
+		var b6 = new BitSet();
+		b6.set(characteristicValueIndex.get("AA_01"));
+		b6.set(characteristicValueIndex.get("XX_01"));
+		row6.setBitset(b6);
+		table4.add(row6);
 
 		allTables.add(table1);
 		allTables.add(table2);
 		allTables.add(table3);
-
+		allTables.add(table4);
 
 
 		for (List<Row> incomingTable : allTables) {
@@ -164,9 +189,63 @@ public class AsapApplication implements CommandLineRunner {
 			}
 		}
 
+		// Get possibles values for each characteristic in the pseudo table ( required to compute with the signature after )
+
+		Map<String, Set<String>> possibleValues = new HashMap<>();
+		for (Row row : pseudoTable.stream().filter(Row::isActive).collect(Collectors.toList())) {
+			BitSet bitset = row.getBitset();
+			for (int i = bitset.nextSetBit(0); i >= 0; i = bitset.nextSetBit(i + 1)) {
+				String characteristicValue = characteristicValueIndexReversed.get(i);
+				String characteristic = characteristicValue.split("_")[0];
+				String value = characteristicValue.split("_")[1];
+				possibleValues.computeIfAbsent(characteristic, k -> new HashSet<>()).add(value);
+			}
+		}
+
+		System.out.println("Possibles values per characteristic: " + possibleValues);
+
+		System.out.println("\n");
+		System.out.println("Compute combination using pseudo table");
+
+		String singature = "AA BB";
+
+		System.out.println("Using signature "+ singature);
+
+
+		// filter pseudo table with valid line and contains signature characteristics ( turn on the valid lines )
+		List<?> filteredWithValidLineAndSignatureCharacteristics = pseudoTable
+				.stream()
+				.filter(Row::isActive)
+				.map(row -> {
+
+					boolean isValid = false;
+					for (int i = row.getBitset().nextSetBit(0); i >= 0; i = row.getBitset().nextSetBit(i + 1)) {
+						String characteristicValue = characteristicValueIndexReversed.get(i);
+						String characteristic = characteristicValue.split("_")[0];
+						String value = characteristicValue.split("_")[1];
+
+						if (singature.contains(characteristic)) {
+							isValid = true;
+						}
+					}
+
+					if ( isValid ) {
+						return row;
+					} else {
+						return null;
+					}
+				}).collect(Collectors.toList());
 
 
 
+		// build bitmask for each characteristic from signature, and value possible and looking for valid combination in the pseudo table of rules
+		// and check on turnOn line if the combination is valid ( bitmask )
+		List<BitSet> masks = new ArrayList<>();
+		possibleValues.entrySet().stream().filter(entry -> singature.contains(entry.getKey())).forEach(entry -> {
+			System.out.println("Build mask for : " + entry.getKey() + " with values: " + entry.getValue());
+		});
+		System.out.println(masks);
+		//filteredWithValidLineAndSignatureCharacteristics.forEach(System.out::println);
 
 	}
 }
