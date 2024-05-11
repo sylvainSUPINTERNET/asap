@@ -1,11 +1,14 @@
 package com.go.asap;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectRBTreeMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @SpringBootApplication
@@ -238,14 +241,83 @@ public class AsapApplication implements CommandLineRunner {
 
 
 
-		// build bitmask for each characteristic from signature, and value possible and looking for valid combination in the pseudo table of rules
-		// and check on turnOn line if the combination is valid ( bitmask )
-		List<BitSet> masks = new ArrayList<>();
-		possibleValues.entrySet().stream().filter(entry -> singature.contains(entry.getKey())).forEach(entry -> {
-			System.out.println("Build mask for : " + entry.getKey() + " with values: " + entry.getValue());
+		// for each characteristic of the signature, generate a mask thanks to index map
+		// goal is to have X bitset mask for each characteristic and to generate valid combination, using this mask to filter the valid values in pseudo table
+
+		// Step from characteristic build mask
+		Object2ObjectOpenHashMap<String, BitSet> masks = new Object2ObjectOpenHashMap<>(); // Assurez-vous que c'est déclaré quelque part approprié
+
+		Arrays.stream(singature.split(" ")).forEach(charac -> {
+			characteristicValueIndex.forEach((key, value) -> {
+				String characteristic = key.split("_")[0]; // Nom de la caractéristique, e.g., "AA"
+				if (charac.equals(characteristic)) { // Utiliser equals pour une comparaison exacte si nécessaire
+					BitSet bitSet = masks.getOrDefault(characteristic, new BitSet());
+					bitSet.set(value); // Active le bit correspondant à la valeur
+					masks.put(characteristic, bitSet); // Sauvegarde le BitSet mis à jour dans la map
+				}
+			});
 		});
+
 		System.out.println(masks);
-		//filteredWithValidLineAndSignatureCharacteristics.forEach(System.out::println);
+
+		ObjectArrayList<BitSet> combinations = new ObjectArrayList<>();
+		filteredWithValidLineAndSignatureCharacteristics
+				.forEach(pseudoTableRow -> {
+					AtomicBoolean isValidCombination = new AtomicBoolean(true);
+					Row row = (Row) pseudoTableRow;
+					BitSet pseudoTableRowBitSet = (BitSet) row.getBitset().clone();
+
+					System.out.println("for pseudo table row : " + pseudoTableRowBitSet);
+
+					BitSet tmpBitSet = new BitSet();
+					masks.forEach((maskKey, maskValue) -> {
+						System.out.println("Mask " + maskKey + " : " + maskValue.clone() + " for " + row.getBitset().clone());
+						BitSet mask = (BitSet) maskValue.clone();
+						BitSet pseudoTableRowBitSetClone = (BitSet) pseudoTableRowBitSet.clone();
+						pseudoTableRowBitSetClone.and(mask);
+						System.out.println(" MASK with LINE BITSET result and : " + pseudoTableRowBitSetClone);
+						System.out.println("____________");
+
+						if (pseudoTableRowBitSetClone.isEmpty()) {
+							// if one of the mask is empty, the combination is not valid
+							isValidCombination.getAndSet(false);
+							System.out.println("Mask" + maskKey + " is empty, combination invalid");
+						} else {
+							// Combination is considered valid here
+							System.out.println("Combination valid");
+							System.out.println(pseudoTableRowBitSetClone);
+							BitSet tmp = (BitSet) pseudoTableRowBitSetClone.clone();
+							// add all bits from tmp to tmpBitSet
+							tmpBitSet.or(tmp);
+						}
+					});
+
+					if (isValidCombination.get()) {
+						System.out.println("Combination found");
+						// Create a new BitSet instance to store the final results
+						BitSet finalBitSet = new BitSet();
+						finalBitSet.or(tmpBitSet); // Copy all bits from tmpBitSet to finalBitSet
+						System.out.println("Adding " + finalBitSet + " to combinations for signature " + singature);
+						combinations.add(finalBitSet);
+					} else {
+						System.out.println("Combination not found");
+					}
+
+					tmpBitSet.clear();
+					System.out.println("\n+++++ Check combination on next line");
+				});
+
+		System.out.println("\n Result : \nCombinations generated from pseudo table rules : " + combinations);
+
+		// Display:
+		combinations.forEach(combination -> {
+			System.out.println("Combination: " + combination);
+			for (int i = combination.nextSetBit(0); i >= 0; i = combination.nextSetBit(i + 1)) {
+				System.out.println("Characteristic value: " + characteristicValueIndexReversed.get(i));
+			}
+			System.out.println("______________________");
+		});
+
 
 	}
 }
