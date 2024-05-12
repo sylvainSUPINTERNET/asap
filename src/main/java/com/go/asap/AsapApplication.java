@@ -21,35 +21,35 @@ public class AsapApplication implements CommandLineRunner {
 		SpringApplication.run(AsapApplication.class, args);
 	}
 
-	static void generateCombinations(BitSet combination,  Object2ObjectRBTreeMap<Integer, String> characteristicValueIndexReversed) {
+	static List<List<String>> generateCombinations(BitSet combination, Map<Integer, String> reverseIndexMap, List<String> signature) {
 		List<List<String>> allCombinations = new ArrayList<>();
 		List<String> currentCombination = new ArrayList<>();
 
-		// Initialize with an empty combination
-		allCombinations.add(currentCombination);
+		generateCombinationsRecursive(0, currentCombination, allCombinations, combination, reverseIndexMap, signature);
 
-		// Iterate over each index in the combination BitSet
-		for (int i = combination.nextSetBit(0); i >= 0; i = combination.nextSetBit(i + 1)) {
-			String characteristicValue = characteristicValueIndexReversed.get(i);
-			List<List<String>> newCombinations = new ArrayList<>();
-
-			// Extend each existing combination with the current characteristic value
-			for (List<String> existingCombination : allCombinations) {
-				List<String> extendedCombination = new ArrayList<>(existingCombination);
-				extendedCombination.add(characteristicValue);
-				newCombinations.add(extendedCombination);
-			}
-
-			// Add new combinations to the list of all combinations
-			allCombinations.addAll(newCombinations);
-		}
-
-		// Print all generated combinations
-		for (List<String> combinationList : allCombinations) {
-			System.out.println("Combination: " + combinationList);
-		}
+		return allCombinations;
 	}
 
+	static void generateCombinationsRecursive(int index, List<String> currentCombination, List<List<String>> allCombinations, BitSet combination, Map<Integer, String> reverseIndexMap, List<String> signature) {
+		if (index == signature.size()) {
+			// Ajouter la combinaison actuelle à la liste de toutes les combinaisons
+			allCombinations.add(new ArrayList<>(currentCombination));
+			return;
+		}
+
+		String currentCharacteristic = signature.get(index);
+
+		for (Map.Entry<Integer, String> entry : reverseIndexMap.entrySet()) {
+			String characteristicValue = entry.getValue();
+			String characteristic = characteristicValue.split("_")[0];
+
+			if (characteristic.equals(currentCharacteristic) && combination.get(entry.getKey())) {
+				currentCombination.add(characteristicValue);
+				generateCombinationsRecursive(index + 1, currentCombination, allCombinations, combination, reverseIndexMap, signature);
+				currentCombination.remove(currentCombination.size() - 1);
+			}
+		}
+	}
 
 	@Override
 	public void run(String... args) throws Exception {
@@ -265,7 +265,7 @@ public class AsapApplication implements CommandLineRunner {
 		System.out.println("\n");
 		System.out.println("Compute combination using pseudo table");
 
-		String singature = "AA BB CC";
+		String singature = "AA BB";
 
 		System.out.println("Using signature "+ singature);
 
@@ -368,7 +368,9 @@ public class AsapApplication implements CommandLineRunner {
 		List<String> currentCombinationGenerated = new ArrayList<>();
 		combinations.forEach(combination -> {
 			System.out.println("Combination: " + combination);
-			generateCombinations(combination, characteristicValueIndexReversed);
+			var x= generateCombinations(combination, characteristicValueIndexReversed, Arrays.asList(singature.split(" ")));
+			System.out.println(x);
+
 		});
 		System.out.println(currentCombinationGenerated);
 
