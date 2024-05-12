@@ -21,8 +21,23 @@ public class AsapApplication implements CommandLineRunner {
 		SpringApplication.run(AsapApplication.class, args);
 	}
 
+	public static void generateCombinations(List<List<String>> options, int depth, String current, List<String> results) {
+		if (depth == options.size()) {
+			results.add(current.trim()); // Ajouter la combinaison complète sans l'espace de début
+			return;
+		}
+
+		// Récupérer la liste des options pour la profondeur actuelle
+		List<String> currentOptions = options.get(depth);
+		for (String option : currentOptions) {
+			generateCombinations(options, depth + 1, current + " " + option, results);
+		}
+	}
+
 	@Override
 	public void run(String... args) throws Exception {
+
+
 
 		Object2ObjectRBTreeMap<String, Integer> characteristicValueIndex = new Object2ObjectRBTreeMap<>();
 		characteristicValueIndex.put("AA_01", 0);
@@ -96,11 +111,11 @@ public class AsapApplication implements CommandLineRunner {
 		row4.setBitset(b4);
 		table2.add(row4);
 
-
 		/*
 		 * AA | BB | CC | XX
 		 * ------------
 		 * 01 | 02 | 01   01
+		 * 02 | 03 | 02   01
 		 */
 		List<Row> table3 = new ArrayList<>();
 		Row row5 = new Row();
@@ -111,13 +126,25 @@ public class AsapApplication implements CommandLineRunner {
 		b5.set(characteristicValueIndex.get("CC_01"));
 		b5.set(characteristicValueIndex.get("XX_01"));
 		row5.setBitset(b5);
+
+		Row rowx = new Row();
+		rowx.setActive(true);
+		var bx = new BitSet();
+		bx.set(characteristicValueIndex.get("AA_02"));
+		bx.set(characteristicValueIndex.get("BB_03"));
+		bx.set(characteristicValueIndex.get("CC_02"));
+		bx.set(characteristicValueIndex.get("XX_01"));
+		rowx.setBitset(bx);
+
 		table3.add(row5);
+		table3.add(rowx);
 
 
 		/*
 		 * AA | XX
 		 * ------------
 		 * 01 | 01
+		 * 02 | 01
 		 */
 		List<Row> table4 = new ArrayList<>();
 		Row row6 = new Row();
@@ -127,6 +154,17 @@ public class AsapApplication implements CommandLineRunner {
 		b6.set(characteristicValueIndex.get("XX_01"));
 		row6.setBitset(b6);
 		table4.add(row6);
+
+		Row rowb = new Row();
+		rowb.setActive(true);
+		var bb = new BitSet();
+		bb.set(characteristicValueIndex.get("AA_02"));
+		bb.set(characteristicValueIndex.get("XX_01"));
+		rowb.setBitset(bb);
+		table4.add(rowb);
+
+
+
 
 		allTables.add(table1);
 		allTables.add(table2);
@@ -210,7 +248,7 @@ public class AsapApplication implements CommandLineRunner {
 		System.out.println("\n");
 		System.out.println("Compute combination using pseudo table");
 
-		String singature = "AA BB";
+		String singature = "AA BB CC";
 
 		System.out.println("Using signature "+ singature);
 
@@ -284,7 +322,7 @@ public class AsapApplication implements CommandLineRunner {
 							System.out.println("Mask" + maskKey + " is empty, combination invalid");
 						} else {
 							// Combination is considered valid here
-							System.out.println("Combination valid");
+							System.out.println("Mask " + maskKey + " is valid");
 							System.out.println(pseudoTableRowBitSetClone);
 							BitSet tmp = (BitSet) pseudoTableRowBitSetClone.clone();
 							// add all bits from tmp to tmpBitSet
@@ -309,15 +347,38 @@ public class AsapApplication implements CommandLineRunner {
 
 		System.out.println("\n Result : \nCombinations generated from pseudo table rules : " + combinations);
 
-		// Display:
+
+		List<List<String>> options = new ArrayList<>();
+
 		combinations.forEach(combination -> {
 			System.out.println("Combination: " + combination);
 			for (int i = combination.nextSetBit(0); i >= 0; i = combination.nextSetBit(i + 1)) {
-				System.out.println("Characteristic value: " + characteristicValueIndexReversed.get(i));
+				String characteristicValue = characteristicValueIndexReversed.get(i);
+				String characteristic = characteristicValue.split("_")[0];
+				String value = characteristicValue.split("_")[1];
+				System.out.println(characteristicValue);
 			}
-			System.out.println("______________________");
 		});
 
+		// Display:
+//		HashMap<String, BitSet> combiMap = new HashMap<>();
+//		List<String> combiGenerated = new ArrayList<>();
+//		combinations.forEach(combination -> {
+//			for (int i = combination.nextSetBit(0); i >= 0; i = combination.nextSetBit(i + 1)) {
+//				String characteristicValue = characteristicValueIndexReversed.get(i);
+//				String characteristic = characteristicValue.split("_")[0];
+//				String value = characteristicValue.split("_")[1];
+//				BitSet bitSet = combiMap.getOrDefault(characteristic, new BitSet());
+//				bitSet.set(Integer.parseInt(value));
+//				combiMap.put(characteristic, bitSet);
+//			}
+//			System.out.println("Combination: " + combination);
+//			System.out.println(combiMap);
+//			System.out.println("Combination generated = " + "");
+//			System.out.println("______________________");
+//		});
+
+		// Generate all possible combinations
 
 	}
 }
