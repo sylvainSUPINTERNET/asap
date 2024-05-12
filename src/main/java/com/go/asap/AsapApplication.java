@@ -21,18 +21,35 @@ public class AsapApplication implements CommandLineRunner {
 		SpringApplication.run(AsapApplication.class, args);
 	}
 
-	public static void generateCombinations(List<List<String>> options, int depth, String current, List<String> results) {
-		if (depth == options.size()) {
-			results.add(current.trim()); // Ajouter la combinaison complète sans l'espace de début
-			return;
+	static void generateCombinations(BitSet combination,  Object2ObjectRBTreeMap<Integer, String> characteristicValueIndexReversed) {
+		List<List<String>> allCombinations = new ArrayList<>();
+		List<String> currentCombination = new ArrayList<>();
+
+		// Initialize with an empty combination
+		allCombinations.add(currentCombination);
+
+		// Iterate over each index in the combination BitSet
+		for (int i = combination.nextSetBit(0); i >= 0; i = combination.nextSetBit(i + 1)) {
+			String characteristicValue = characteristicValueIndexReversed.get(i);
+			List<List<String>> newCombinations = new ArrayList<>();
+
+			// Extend each existing combination with the current characteristic value
+			for (List<String> existingCombination : allCombinations) {
+				List<String> extendedCombination = new ArrayList<>(existingCombination);
+				extendedCombination.add(characteristicValue);
+				newCombinations.add(extendedCombination);
+			}
+
+			// Add new combinations to the list of all combinations
+			allCombinations.addAll(newCombinations);
 		}
 
-		// Récupérer la liste des options pour la profondeur actuelle
-		List<String> currentOptions = options.get(depth);
-		for (String option : currentOptions) {
-			generateCombinations(options, depth + 1, current + " " + option, results);
+		// Print all generated combinations
+		for (List<String> combinationList : allCombinations) {
+			System.out.println("Combination: " + combinationList);
 		}
 	}
+
 
 	@Override
 	public void run(String... args) throws Exception {
@@ -348,17 +365,12 @@ public class AsapApplication implements CommandLineRunner {
 		System.out.println("\n Result : \nCombinations generated from pseudo table rules : " + combinations);
 
 
-		List<List<String>> options = new ArrayList<>();
-
+		List<String> currentCombinationGenerated = new ArrayList<>();
 		combinations.forEach(combination -> {
 			System.out.println("Combination: " + combination);
-			for (int i = combination.nextSetBit(0); i >= 0; i = combination.nextSetBit(i + 1)) {
-				String characteristicValue = characteristicValueIndexReversed.get(i);
-				String characteristic = characteristicValue.split("_")[0];
-				String value = characteristicValue.split("_")[1];
-				System.out.println(characteristicValue);
-			}
+			generateCombinations(combination, characteristicValueIndexReversed);
 		});
+		System.out.println(currentCombinationGenerated);
 
 		// Display:
 //		HashMap<String, BitSet> combiMap = new HashMap<>();
