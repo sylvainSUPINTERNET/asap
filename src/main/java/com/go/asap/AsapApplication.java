@@ -136,7 +136,10 @@ public class AsapApplication implements CommandLineRunner {
 	public void run(String... args) throws Exception {
 
 
-		String singature = "B0C B0F B0H DDZ DKA DMI DRS REG"; //"B0C B0F";
+		// TODO
+		// For some reason in table there is not B0C for ZZK9 ... so signature with it, will not work
+		String singature = "B0H D2A"; //"B0H DGM DN2 DQK DRC DUB DYM";
+				//"B0C B0F B0H DDZ DKA DMI DRS REG"; //"B0C B0F";
 		String folder = "P22";
 		String tables = "P22";
 		Loader loadTable = new Loader();
@@ -319,13 +322,35 @@ public class AsapApplication implements CommandLineRunner {
 		 */
 
 
-		List<Row> pseudoTable = new ArrayList<>();
 
+		TableProcessor processor = new TableProcessor();
+		List<Row> pseudoTable = processor.processTables(allTables);
+
+
+		// Optionally print results or further process the filtered rows
+		for (List<Row> table : allTables) {
+			for (Row row : table) {
+				if (row.isActive()) {
+					System.out.println("Active Row: " + row.getBitset());
+				} else {
+					System.out.println("Non active row : " + row.getBitset());
+				}
+			}
+		}
+
+
+		/*
+		List<Row> pseudoTable = new ArrayList<>();
 
 		for (List<Row> incomingTable : allTables) {
 			if (pseudoTable.isEmpty()) {
 				System.out.println("Initializing pseudoTable with the first table.");
-				pseudoTable.addAll(incomingTable);
+				for (Row row : incomingTable) {
+					Row newCopy = new Row();
+					newCopy.setActive(row.isActive());
+					newCopy.setBitset((BitSet) row.getBitset().clone());
+					pseudoTable.add(newCopy);
+				}
 				continue;
 			}
 
@@ -333,12 +358,11 @@ public class AsapApplication implements CommandLineRunner {
 			do {
 				hasDisabledLine = false;
 				Set<Row> rowsToKeep = new HashSet<>();
+				System.out.println("Whats going on ?");
 
 				for (Row incomingTableRow : incomingTable) {
-					//System.out.println("Incoming: " + incomingTableRow.getBitset());
-					for (Row pseudoTableRow : pseudoTable) {
+					for (Row pseudoTableRow : new ArrayList<>(pseudoTable)) {
 						if (!pseudoTableRow.isActive()) {
-							//System.out.println("Skipped (disabled): " + pseudoTableRow.getBitset());
 							continue;
 						}
 
@@ -346,26 +370,28 @@ public class AsapApplication implements CommandLineRunner {
 						intersection.and(incomingTableRow.getBitset());
 
 						if (!intersection.isEmpty()) {
-							//System.out.println("Valid intersection found: " + intersection);
-							// Fusionner le BitSet de pseudoTableRow avec celui de incomingTableRow
-							BitSet mergedBitSet = (BitSet) pseudoTableRow.getBitset().clone();
-							mergedBitSet.or(incomingTableRow.getBitset());  // Union des deux BitSets
-							pseudoTableRow.setBitset(mergedBitSet);  // Mettre à jour le BitSet de pseudoTableRow
-							rowsToKeep.add(pseudoTableRow);
-							//System.out.println("Merged BitSet: " + mergedBitSet);
-
-						} else {
-							//System.out.println("No valid intersection for: " + pseudoTableRow.getBitset());
+							Row newRow = new Row();
+							newRow.setActive(true);
+							BitSet newBitSet = (BitSet) pseudoTableRow.getBitset().clone();
+							newBitSet.or(incomingTableRow.getBitset());
+							newRow.setBitset(newBitSet);
+							rowsToKeep.add(newRow);
 						}
 					}
 				}
 
-				// Disable rows that are not in rowsToKeep
-				for (Row pseudoTableRow : pseudoTable) {
-					if (pseudoTableRow.isActive() && !rowsToKeep.contains(pseudoTableRow)) {
-						pseudoTableRow.setActive(false);
-						System.out.println("Disabling row: " + pseudoTableRow.getBitset());
-						hasDisabledLine = true;
+				// Update pseudoTable to only include rows that have intersections
+				if (!rowsToKeep.isEmpty()) {
+					pseudoTable.clear();
+					pseudoTable.addAll(rowsToKeep);
+				} else {
+					// If no intersections are found, deactivate all rows
+					for (Row row : pseudoTable) {
+						if (row.isActive()) {
+							row.setActive(false);
+							hasDisabledLine = true;
+							System.out.println("Disabling row: " + row.getBitset());
+						}
 					}
 				}
 			} while (hasDisabledLine);
@@ -379,6 +405,11 @@ public class AsapApplication implements CommandLineRunner {
 				System.out.println("Active Row: " + row.getBitset());
 			}
 		}
+
+		 */
+
+
+
 
 
 
@@ -405,7 +436,7 @@ public class AsapApplication implements CommandLineRunner {
 
 
 		// filter pseudo table with valid line and contains signature characteristics ( turn on the valid lines )
-		List<?> filteredWithValidLineAndSignatureCharacteristics = pseudoTable
+		List<Row> filteredWithValidLineAndSignatureCharacteristics = pseudoTable
 				.stream()
 				.filter(Row::isActive)
 				.map(row -> {
@@ -434,10 +465,24 @@ public class AsapApplication implements CommandLineRunner {
 		// goal is to have X bitset mask for each characteristic and to generate valid combination, using this mask to filter the valid values in pseudo table
 
 		// Step from characteristic build mask
+
+		// Pre processing mask
+		// remove extra index
+		Set<String> expectedPossibles = new HashSet();
+		if ( folder.equalsIgnoreCase("P22") ) {
+			expectedPossibles = P22Table.expectedPossiblesValues(P22Table.EXPECTED_POSSIBLES_VALUES);
+		}
+		if ( folder.equalsIgnoreCase("ZZK9") ) {
+			expectedPossibles = ZZK9Table.expectedPossiblesValues(ZZK9Table.EXPECTED_POSSIBLES_VALUES);
+		}
+		final Set<String> expectedPossibleValus = expectedPossibles;
 		Object2ObjectOpenHashMap<String, BitSet> masks = new Object2ObjectOpenHashMap<>(); // Assurez-vous que c'est déclaré quelque part approprié
 
 		Arrays.stream(singature.split(" ")).forEach(charac -> {
 			characteristicValueIndex.forEach((key, value) -> {
+				if ( !expectedPossibleValus.contains(key) ) {
+					return;
+				}
 				String characteristic = key.split("_")[0]; // Nom de la caractéristique, e.g., "AA"
 				if (charac.equals(characteristic)) { // Utiliser equals pour une comparaison exacte si nécessaire
 					BitSet bitSet = masks.getOrDefault(characteristic, new BitSet());
@@ -447,86 +492,55 @@ public class AsapApplication implements CommandLineRunner {
 			});
 		});
 
+
+
+
 		System.out.println(masks);
 
-		// TODO
-		// Pre processing mask
-		// remove extra index
-
-		// Exemple for P22 we have too many B0C and B0F... we should have just :
-		// B0C	P2
-		// B0F	ES JG JH JU L6 L7 L8 LY M5 M6 MK MN MT MU MZ NP P6 PR Q5 ZI
 
 
-		if ( folder.equalsIgnoreCase("P22") ) {
-			if ( !masks.get("B0C").isEmpty() ) {
-				var idxB0C_P2 = characteristicValueIndex.get("B0C_P2");
-				masks.get("B0C").stream().filter(idx -> idx != idxB0C_P2).forEach(m -> masks.get("B0C").clear(m));
-			}
-
-			/*
-			if ( !masks.get("B0F").isEmpty()) {
-				var idxB0F_ES = characteristicValueIndex.get("B0F_ES");
-				masks.get("B0F").stream().filter(idx -> idx != idxB0F_ES).forEach(m -> masks.get("B0F").clear(m));
-			}*/
-		}
-
-
+		long startTimeX = System.nanoTime();
 
 		ObjectArrayList<BitSet> combinations = new ObjectArrayList<>();
 		filteredWithValidLineAndSignatureCharacteristics
 				.forEach(pseudoTableRow -> {
-					AtomicBoolean isValidCombination = new AtomicBoolean(true);
-					Row row = (Row) pseudoTableRow;
-					BitSet pseudoTableRowBitSet = (BitSet) row.getBitset().clone();
+					BitSet originalRowBitSet = (BitSet) pseudoTableRow.getBitset().clone();
+					System.out.println("Processing row: " + originalRowBitSet);
 
-					System.out.println("for pseudo table row : " + pseudoTableRowBitSet);
+					boolean allMasksValid = true;
+					BitSet combinedBitSet = new BitSet();
 
-					BitSet tmpBitSet = new BitSet();
-					masks.forEach((maskKey, maskValue) -> {
-						System.out.println("Mask " + maskKey + " : " + maskValue.clone() + " for " + row.getBitset().clone());
-						BitSet mask = (BitSet) maskValue.clone();
-						BitSet pseudoTableRowBitSetClone = (BitSet) pseudoTableRowBitSet.clone();
-						pseudoTableRowBitSetClone.and(mask);
-						System.out.println(" MASK with LINE BITSET result and : " + pseudoTableRowBitSetClone);
-						System.out.println("____________");
+					for (Map.Entry<String, BitSet> entry : masks.entrySet()) {
+						String maskKey = entry.getKey();
+						BitSet mask = (BitSet) entry.getValue().clone();
+						BitSet intersection = (BitSet) originalRowBitSet.clone();
+						intersection.and(mask);
 
-						if (pseudoTableRowBitSetClone.isEmpty()) {
-							// if one of the mask is empty, the combination is not valid
-							isValidCombination.getAndSet(false);
-							System.out.println("Mask" + maskKey + " is empty, combination invalid");
+						if (!intersection.isEmpty()) {
+							System.out.println("Valid intersection with mask " + maskKey + ": " + intersection);
+							combinedBitSet.or(intersection);
 						} else {
-							// Combination is considered valid here
-							System.out.println("Mask " + maskKey + " is valid");
-							System.out.println(pseudoTableRowBitSetClone);
-							BitSet tmp = (BitSet) pseudoTableRowBitSetClone.clone();
-							// add all bits from tmp to tmpBitSet
-							tmpBitSet.or(tmp);
+							System.out.println("No valid intersection for mask " + maskKey);
+							allMasksValid = false;
+							break;
 						}
-					});
-
-					if (isValidCombination.get()) {
-						System.out.println("Combination found");
-						// Create a new BitSet instance to store the final results
-						BitSet finalBitSet = new BitSet();
-						finalBitSet.or(tmpBitSet); // Copy all bits from tmpBitSet to finalBitSet
-						System.out.println("Adding " + finalBitSet + " to combinations for signature " + singature);
-						combinations.add(finalBitSet);
-					} else {
-						System.out.println("Combination not found");
 					}
 
-					tmpBitSet.clear();
-					System.out.println("\n+++++ Check combination on next line");
+					if (allMasksValid) {
+						System.out.println("All masks matched for this row. Adding to combinations: " + combinedBitSet);
+						combinations.add((BitSet) combinedBitSet.clone()); // Clone again to ensure uniqueness
+					}
 				});
+
+		System.out.println("Total combinations found: " + combinations.size());
+
+
+
 
 		System.out.println("\n Result : \nCombinations generated from pseudo table rules : " + combinations);
 
 
 
-
-
-		// TODO ici truck chelou aussi, l'impression que j'ai combination et en fait c'est tout le temsp le même truck ... et l'impression que en fait juste la première contient deja les combi possibles !
 		int totalCount = 0;
 		System.out.println(combinations);
 
@@ -541,10 +555,13 @@ public class AsapApplication implements CommandLineRunner {
 				totalCount++;
 			}
 
-			System.out.println("Time all : " + listCombiGeneratedForLine.getValue());
+			//System.out.println("Time all combination: " + listCombiGeneratedForLine.getValue());
 
 		}
-		//System.out.println("Total combination " + totalCount);
 
+
+		var endTimeX = System.nanoTime();
+		System.out.println("Total time : " + (endTimeX - startTimeX) / 1e6);
+		System.out.println("Total combination " + totalCount);
 	}
 }

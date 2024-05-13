@@ -1,8 +1,165 @@
 package com.go.asap;
 
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class ZZK9Table {
 
+
+    public static Set<String> expectedPossiblesValues(String values) {
+        Set<String> result = new HashSet<>();
+        String[] lines = values.split("\n");  // Split by new line to process each line
+
+        for (String line : lines) {
+            if (!line.trim().isEmpty()) {
+                String[] parts = line.split("\t");  // Split by tab to separate the key and values
+                String key = parts[0].trim();
+                String[] codes = parts[1].trim().split(" ");  // Split values by space
+
+                for (String code : codes) {
+                    result.add(key + "_" + code);
+                }
+            }
+        }
+        return result;
+    }
+    public final static String EXPECTED_POSSIBLES_VALUES = "B0A\t01 02 \n" +
+            "B0D\t1A 1C 5C AF CL K0 K1 SL \n" +
+            "B0F\tEF EU EY K9 KE L5 MK MN NN NP P4 P6 Q5 ZI \n" +
+            "B0G\t01 05 0F 0K 0W \n" +
+            "DAB\t00 13 \n" +
+            "DAN\t00 01 05 \n" +
+            "DAQ\t00 03 04 06 09 10 11 \n" +
+            "DAS\t01 16 \n" +
+            "DAX\t02 05 \n" +
+            "DCX\t01 02 \n" +
+            "DCZ\t01 13 26 34 \n" +
+            "DDK\t00 13 \n" +
+            "DDZ\tG6 G7 G8 G9 JN QR SB SC SD SE SH XJ ZX \n" +
+            "DER\t33 37 42 43 44 45 \n" +
+            "DFH\t01 05 \n" +
+            "DFX\t00 01 \n" +
+            "DHY\t01 02 \n" +
+            "DI4\t00 01 \n" +
+            "DK6\t00 02 \n" +
+            "DL9\t00 01 \n" +
+            "DLA\t02 05 10 11 \n" +
+            "DLV\t00 02 03 04 \n" +
+            "DLZ\t00 02 04 \n" +
+            "DNF\t00 11 12 15 \n" +
+            "DPC\t00 17 18 19 \n" +
+            "DQF\t00 01 \n" +
+            "DRE\t01 07 \n" +
+            "DRG\t31 37 \n" +
+            "DRS\t00 01 09 \n" +
+            "DUB\t00 21 25 \n" +
+            "DUF\t01 02 \n" +
+            "DVT\t07 11 44 49 \n" +
+            "DYD\t00 01 \n" +
+            "B0B\t0C 0G 0I 0M 0P \n" +
+            "B0E\t02 03 04 05 07 08 0A 0E 0F 0N 0P 0Q 0S 0T 0V 0W \n" +
+            "B0H\tB0 C0 DB E0 EE F0 G0 GC GD GL J0 JR T0 U0 UB UM V0 Y0 \n" +
+            "B0J\t17 26 46 66 A0 DO E1 EN GD UJ \n" +
+            "B0M\tE0 M0 P0 \n" +
+            "B0N\t1N 1W 4P 4Q 5V 9V DC F4 JH KC M6 MG PR X9 ZR \n" +
+            "B0P\t46 CM CP CQ CR CS CZ DV F7 OF \n" +
+            "B0R\tFL FN FT FX FY \n" +
+            "D25\t00 01 \n" +
+            "D48\t00 01 \n" +
+            "D5N\t04 07 \n" +
+            "D6F\t01 02 \n" +
+            "DAL\t00 04 05 46 \n" +
+            "DAO\t00 01 \n" +
+            "DBJ\t00 02 03 04 06 \n" +
+            "DBO\t00 01 02 \n" +
+            "DBQ\t00 01 \n" +
+            "DBV\t02 04 \n" +
+            "DCA\t00 06 \n" +
+            "DCB\t00 08 09 \n" +
+            "DCO\t00 01 02 \n" +
+            "DCP\t01 02 \n" +
+            "DCU\t15 26 \n" +
+            "DD3\t00 61 62 63 72 BG BI BX CH CR CS DA DB DH DR DS DT DU DV DW DX DY DZ EA EB EC NT RC SZ \n" +
+            "DD4\t00 24 27 \n" +
+            "DDY\t00 36 \n" +
+            "DE2\t00 01 \n" +
+            "DE3\t00 01 \n" +
+            "DE7\t00 03 04 \n" +
+            "DE8\t01 02 \n" +
+            "DED\t16 24 27 44 61 62 78 \n" +
+            "DEJ\t02 06 11 \n" +
+            "DEN\tER VO WL WM \n" +
+            "DES\t00 03 08 11 \n" +
+            "DFE\t00 10 \n" +
+            "DFZ\t00 01 \n" +
+            "DGA\t01 03 \n" +
+            "DGB\t00 23 33 38 43 44 \n" +
+            "DGM\t62 AZ \n" +
+            "DGQ\t00 09 \n" +
+            "DHU\t02 03 \n" +
+            "DI3\t00 01 \n" +
+            "DI8\t00 01 \n" +
+            "DI9\t00 01 \n" +
+            "DIQ\t00 01 \n" +
+            "DIT\t01 02 \n" +
+            "DIW\t00 01 02 \n" +
+            "DJA\t12 18 \n" +
+            "DJY\t00 11 \n" +
+            "DKA\t17 23 26 31 37 38 50 \n" +
+            "DKG\t00 37 38 40 \n" +
+            "DKK\t00 01 \n" +
+            "DLE\t00 05 \n" +
+            "DLI\t00 15 \n" +
+            "DLK\t06 08 10 11 13 \n" +
+            "DLT\t02 03 \n" +
+            "DLU\t02 03 \n" +
+            "DLW\t01 02 \n" +
+            "DME\t00 08 \n" +
+            "DMG\t00 15 \n" +
+            "DMP\t00 CB FA GT \n" +
+            "DN2\t00 02 \n" +
+            "DNA\t00 01 \n" +
+            "DNB\t04 08 \n" +
+            "DNC\t00 05 \n" +
+            "DNM\t00 01 02 \n" +
+            "DNN\t00 01 \n" +
+            "DOF\t00 43 46 49 50 \n" +
+            "DON\t01 02 \n" +
+            "DOR\t01 03 \n" +
+            "DOU\t00 01 \n" +
+            "DOV\t00 01 02 \n" +
+            "DPB\t02 04 07 \n" +
+            "DPD\t22 23 29 88 \n" +
+            "DPQ\t02 13 \n" +
+            "DPR\t00 01 \n" +
+            "DPX\t00 13 27 35 42 43 \n" +
+            "DQK\t00 04 13 \n" +
+            "DRB\t36 37 39 40 \n" +
+            "DRC\t00 71 \n" +
+            "DRH\t00 12 \n" +
+            "DRL\t00 02 05 \n" +
+            "DRU\t00 20 \n" +
+            "DRZ\t48 89 AB AC AE CG CY \n" +
+            "DSD\t00 46 79 \n" +
+            "DUD\t00 03 \n" +
+            "DUE\t00 05 \n" +
+            "DUH\t00 10 56 \n" +
+            "DUX\t00 37 41 AB \n" +
+            "DVB\t04 08 \n" +
+            "DVC\t00 02 \n" +
+            "DVD\t02 10 \n" +
+            "DVG\t00 02 11 18 19 \n" +
+            "DVH\t04 07 23 49 \n" +
+            "DVI\t01 03 \n" +
+            "DXY\t00 01 \n" +
+            "DYI\t03 45 \n" +
+            "DYM\t00 22 25 \n" +
+            "DYQ\t01 02 \n" +
+            "DYR\t00 22 \n" +
+            "DZJ\tA0 A1 A2 A3 A4 A5 \n" +
+            "DZV\tKY KZ L0 \n" +
+            "D2A\t00 BA BG BH BM BN CO CR CU CY DO DZ EG FI GF GP GR GT HR ID IE IS JP LT LY MD MQ MU MY NC NZ PF PH PM RE RO RS SI SK SY TN TR TW UA UY VN XT YT ZA";
     public final static String TABLES = "FAM_ZZK9_B0B_DUF\n" +
             "FAM_ZZK9_B0G_DRG\n" +
             "FAM_ZZK9_B0M_B0N\n" +
