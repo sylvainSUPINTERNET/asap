@@ -98,8 +98,7 @@ public class AsapApplication implements CommandLineRunner {
 
 		// Build pseudo tables
 		TreeMap<String, PseudoTable> aggregationPseudoTables = new TreeMap<>();
-
-		TreeMap<String, String> memoizationPossiblesValues = new TreeMap<>();
+		TreeMap<String, List<BitSet>> memoizationPossiblesValues = new TreeMap<>();
 
 		for ( String tableName : tableNames ) {
 			if ( aggregationPseudoTables.isEmpty() ) {
@@ -113,8 +112,18 @@ public class AsapApplication implements CommandLineRunner {
 				});
 				pseudoTable.setValue(values);
 				aggregationPseudoTables.put(tableName, pseudoTable);
+
+				// Update possibles values
+				memoizationPossiblesValues.putAll(values.keySet().stream().collect(Collectors.toMap(k -> k, v -> aggregationPseudoTables.get(tableName).getValue().get(v).getBitsetList())));
+
 			} else {
 				LOG.info("Verse table : {} dans pseudo tables ...", tableName);
+
+				aggregationRawTables.get(tableName).getValue().entrySet().forEach(entry -> {
+					String key = entry.getKey();
+					Row value = entry.getValue();
+					// TODO => possibles value update
+				});
 
 				// TODO donc là on entame une nouvelle table :
 				// Il faut memoizer les valeur possibles
