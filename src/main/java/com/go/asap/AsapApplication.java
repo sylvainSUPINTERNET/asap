@@ -27,6 +27,7 @@ public class AsapApplication implements CommandLineRunner {
 		SpringApplication.run(AsapApplication.class, args);
 	}
 
+
 	@Override
 	public void run(String... args) throws Exception {
 
@@ -114,15 +115,44 @@ public class AsapApplication implements CommandLineRunner {
 				aggregationPseudoTables.put(tableName, pseudoTable);
 
 				// Update possibles values
-				memoizationPossiblesValues.putAll(values.keySet().stream().collect(Collectors.toMap(k -> k, v -> aggregationPseudoTables.get(tableName).getValue().get(v).getBitsetList())));
-
+				memoizationPossiblesValues.putAll(values.keySet().stream()
+						.collect(Collectors.toMap(
+								k -> k,
+								v -> aggregationPseudoTables.get(tableName).getValue().get(v).getBitsetList(),
+								(existing, replacement) -> {
+									existing.addAll(replacement);
+									return existing;
+								}
+						)));
 			} else {
 				LOG.info("Verse table : {} dans pseudo tables ...", tableName);
+
 
 				aggregationRawTables.get(tableName).getValue().entrySet().forEach(entry -> {
 					String key = entry.getKey();
 					Row value = entry.getValue();
+
+					// TODO => pas bon ici car pour vérifier que la clé est dans aggregationPseudoTables il faut faire un containsKey mais à la racine la clé est le nom de la table sur aggregationPseudoTables ...
+					// TODO => le contains doit être fait au niveau du TreeMap ( values ) de la pseudo table
+
+					System.out.println(key);
+					System.out.println(value);
+
+
+
+
 					// TODO => possibles value update
+					/*
+					memoizationPossiblesValues.putAll(values.keySet().stream()
+							.collect(Collectors.toMap(
+									k -> k,
+									v -> aggregationPseudoTables.get(tableName).getValue().get(v).getBitsetList(),
+									(existing, replacement) -> {
+										existing.addAll(replacement);
+										return existing;
+									}
+							)));
+					 */
 				});
 
 				// TODO donc là on entame une nouvelle table :
