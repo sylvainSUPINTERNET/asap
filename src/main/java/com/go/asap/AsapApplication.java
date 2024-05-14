@@ -99,6 +99,8 @@ public class AsapApplication implements CommandLineRunner {
 		// Build pseudo tables
 		TreeMap<String, PseudoTable> aggregationPseudoTables = new TreeMap<>();
 
+		TreeMap<String, String> memoizationPossiblesValues = new TreeMap<>();
+
 		for ( String tableName : tableNames ) {
 			if ( aggregationPseudoTables.isEmpty() ) {
 				LOG.info("Initializing pseudoTable with the first table ...");
@@ -113,6 +115,12 @@ public class AsapApplication implements CommandLineRunner {
 				aggregationPseudoTables.put(tableName, pseudoTable);
 			} else {
 				LOG.info("Verse table : {} dans pseudo tables ...", tableName);
+
+				// TODO donc là on entame une nouvelle table :
+				// Il faut memoizer les valeur possibles
+				// Surtout faut regarder si c'est possible
+				// pas possible ? retirer la ligne, et en repartir de 0 pour revalider toutes les lignes, et du coup mettre à jour les valeurs possibles
+
 			}
 		}
 
