@@ -1,6 +1,5 @@
 package com.go.asap;
 
-
 import java.util.BitSet;
 
 public class Row {
