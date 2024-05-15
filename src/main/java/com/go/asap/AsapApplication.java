@@ -81,7 +81,7 @@ public class AsapApplication implements CommandLineRunner {
 		for (Map.Entry<String, List<BitSet>> entry : originalMap.entrySet()) {
 			String key = entry.getKey();
 			if (!signature.contains(getFirstSegment(key, '_'))) {
-				System.out.println("Exclude in possible values but not part of signature, value : " + key + " with bitsets : " + entry.getValue());
+				//System.out.println("Exclude in possible values but not part of signature, value : " + key + " with bitsets : " + entry.getValue());
 				invalidBitSets.addAll(entry.getValue());
 			}
 		}
@@ -245,10 +245,10 @@ public class AsapApplication implements CommandLineRunner {
 		*/
 
 
-		String signature = "F1 F2";
+		String signature = "B0C B0F B0G B0H DAQ";
 
-		String tables = "test";
-		String folder = "test";
+		String tables = "P22";
+		String folder = "P22";
 
 		ObjectArrayList<String> filePrdList = new ObjectArrayList<>();
 		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") || tables.equalsIgnoreCase("tmp") ) {
@@ -399,7 +399,7 @@ public class AsapApplication implements CommandLineRunner {
 			System.out.println(combination);
 		}
 
-		System.out.println(combinations.size() + " for signature " + signature);
+		System.out.println(combinations.size() + " combinations for signature " + signature);
 
 
 	}
