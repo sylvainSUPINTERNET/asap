@@ -1,8 +1,8 @@
 package com.go.asap;
 
-import com.go.asap.m.PseudoTable;
+import com.go.asap.m.*;
+import com.go.asap.m.Loader;
 import com.go.asap.m.Row;
-import com.go.asap.m.Table;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectRBTreeMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -16,6 +16,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @SpringBootApplication
@@ -23,7 +24,6 @@ public class AsapApplication implements CommandLineRunner {
 
 	private static final Logger LOG = LoggerFactory.getLogger(AsapApplication.class);
 
-	/*
 	public static String getFirstSegment(String str, char delimiter) {
 		int index = str.indexOf(delimiter);
 		if (index == -1) {
@@ -154,7 +154,7 @@ public class AsapApplication implements CommandLineRunner {
 			indices[k]++;
 		}
 	}
-	*/
+
 
 	public static void main(String[] args) {
 		SpringApplication.run(AsapApplication.class, args);
@@ -165,216 +165,9 @@ public class AsapApplication implements CommandLineRunner {
 	public void run(String... args) throws Exception {
 
 
-		// Exemple de données fournies
-		String[][] table1 = {
-				{"ZI", "0F", "0Q"},
-				{"ZI", "0F", "0J"},
-				{"JH", "0W", "0P"},
-				{"ZI", "0F", "0U"},
-				{"JG", "0W", "0T"},
-				{"JG", "0W", "0P"},
-				{"JG", "0W", "0H"},
-				{"L6", "0K", "0H"},
-				{"M6", "01", "0P"},
-				{"JU", "0J", "0H"},
-				{"JH", "0W", "0T"},
-				{"L8", "01", "0P"},
-				{"ES", "0F", "0U"},
-				{"LY", "0M", "0T"},
-				{"LY", "0M", "0P"},
-				{"L6", "0K", "0P"},
-				{"PR", "05", "0H"}
-		};
-
-		String[][] table2 = {
-				{"P6", "0K", "0H"},
-				{"P6", "0K", "0P"},
-				{"ES", "0F", "0J"},
-				{"ES", "0F", "0Q"},
-				{"MT", "01", "0P"},
-				{"L6", "0K", "0T"},
-				{"P6", "0K", "0T"},
-				{"MT", "01", "0T"},
-				{"JG", "0W", "0L"},
-				{"NP", "01", "0T"},
-				{"NP", "01", "0R"},
-				{"MZ", "0J", "0L"},
-				{"M5", "01", "0T"},
-				{"M6", "01", "0T"},
-				{"L8", "01", "0T"},
-				{"L7", "01", "0T"},
-				{"L7", "01", "0P"},
-				{"JU", "0J", "0L"},
-				{"ZI", "0F", "0K"},
-				{"ZI", "0F", "0M"},
-				{"L8", "01", "0L"},
-				{"L6", "0K", "0L"},
-				{"L6", "0K", "0R"},
-				{"M5", "01", "0R"},
-				{"M6", "01", "0R"},
-				{"JU", "0J", "0R"},
-				{"L8", "01", "0R"},
-				{"P6", "0K", "0L"},
-				{"P6", "0K", "0R"},
-				{"L7", "01", "0L"},
-				{"L7", "01", "0R"},
-				{"Q5", "05", "0L"},
-				{"Q5", "05", "0R"},
-				{"LY", "0M", "0R"},
-				{"LY", "0M", "0L"},
-				{"MT", "01", "0L"},
-				{"MT", "01", "0R"},
-				{"MU", "06", "0R"},
-				{"PR", "05", "0L"},
-				{"PR", "05", "0R"},
-				{"MN", "0K", "0L"},
-				{"MU", "06", "0L"},
-				{"MK", "01", "0R"},
-				{"MK", "01", "0L"},
-				{"ES", "0F", "0K"},
-				{"M5", "01", "0P"},
-				{"JU", "0J", "0P"},
-				{"JU", "0J", "0B"},
-				{"JU", "0J", "0A"},
-				{"JU", "0J", "0F"},
-				{"L8", "01", "0H"},
-				{"P6", "0K", "0F"},
-				{"L8", "01", "0A"},
-				{"P6", "0K", "0B"},
-				{"P6", "0K", "0A"},
-				{"L7", "01", "0H"},
-				{"Q5", "05", "0F"},
-				{"ES", "0F", "0M"},
-				{"PR", "05", "0F"}
-		};
-
-		// Construire les pseudo-tables
-		Map<String, List<BitSet>> pseudoTable = new HashMap<>();
-		constructPseudoTable(pseudoTable, table1, 1);
-		constructPseudoTable(pseudoTable, table2, 2);
-
-		// Définir la signature cible
-		List<String> signature = Arrays.asList("B0F", "B0G");
-
-		// Filtrer les valeurs par famille selon la signature
-		TreeMap<String, List<BitSet>> filteredValues = filterTreeMapBySignature(pseudoTable, new HashSet<>(signature));
-
-		// Invalider les combinaisons en cascade
-		Set<BitSet> invalidBitSets = invalidateCombinations(pseudoTable, new HashSet<>(signature));
-
-		// Générer les combinaisons valides
-		Set<String> combinations = generateCombinationsForSignature(filteredValues, invalidBitSets, signature);
-
-		// Afficher les combinaisons uniques
-		System.out.println("Nombre de combinaisons : " + combinations.size());
-		for (String combination : combinations) {
-			System.out.println(combination);
-		}
-	}
-
-	public static void constructPseudoTable(Map<String, List<BitSet>> pseudoTable, String[][] table, int tableIndex) {
-		for (int i = 0; i < table.length; i++) {
-			String key = table[i][0] + "_" + table[i][1];
-			BitSet bitSet = new BitSet();
-			bitSet.set(tableIndex);
-			pseudoTable.computeIfAbsent(key, k -> new ArrayList<>()).add(bitSet);
-		}
-	}
-
-	public static TreeMap<String, List<BitSet>> filterTreeMapBySignature(Map<String, List<BitSet>> originalMap, Set<String> signature) {
-		TreeMap<String, List<BitSet>> filteredMap = new TreeMap<>();
-		for (Map.Entry<String, List<BitSet>> entry : originalMap.entrySet()) {
-			String key = entry.getKey();
-			String firstSegment = key.split("_")[0]; // Extraire le premier segment de la clé
-			if (signature.contains(firstSegment)) { // Vérifier si le premier segment est dans la signature
-				filteredMap.put(key, entry.getValue());
-			}
-		}
-		return filteredMap;
-	}
-
-	public static Set<BitSet> invalidateCombinations(Map<String, List<BitSet>> originalMap, Set<String> signature) {
-		Set<BitSet> invalidBitSets = new HashSet<>();
-		for (Map.Entry<String, List<BitSet>> entry : originalMap.entrySet()) {
-			String key = entry.getKey();
-			String firstSegment = key.split("_")[0];
-			if (!signature.contains(firstSegment)) {
-				invalidBitSets.addAll(entry.getValue());
-			}
-		}
-		return invalidBitSets;
-	}
-
-	public static Set<String> generateCombinationsForSignature(TreeMap<String, List<BitSet>> filteredValues, Set<BitSet> invalidBitSets, List<String> signature) {
-		Set<String> combinations = new HashSet<>();
-		List<String> families = new ArrayList<>(signature);
-		List<List<String>> groupedValues = new ArrayList<>();
-
-		// Grouper les valeurs par famille
-		for (String family : families) {
-			List<String> familyValues = new ArrayList<>();
-			for (String key : filteredValues.keySet()) {
-				if (key.startsWith(family)) {
-					familyValues.add(key);
-				}
-			}
-			groupedValues.add(familyValues);
-		}
-
-		// Générer les combinaisons
-		generateCombinationsLoop(groupedValues, filteredValues, invalidBitSets, combinations);
-		return combinations;
-	}
-
-	private static void generateCombinationsLoop(List<List<String>> groupedValues, TreeMap<String, List<BitSet>> filteredValues, Set<BitSet> invalidBitSets, Set<String> combinations) {
-		int[] indices = new int[groupedValues.size()];
-
-		while (true) {
-			List<String> currentCombination = new ArrayList<>();
-			BitSet currentBitSet = new BitSet();
-			boolean isValid = true;
-
-			for (int i = 0; i < groupedValues.size(); i++) {
-				String key = groupedValues.get(i).get(indices[i]);
-				BitSet bitSet = filteredValues.get(key).get(0); // Assuming each key has at least one BitSet
-
-				if (i == 0) {
-					currentBitSet.or(bitSet);
-				} else {
-					BitSet newBitSet = (BitSet) currentBitSet.clone();
-					newBitSet.and(bitSet);
-					if (newBitSet.isEmpty() || invalidBitSets.contains(newBitSet)) {
-						isValid = false;
-						break;
-					}
-					currentBitSet = newBitSet;
-				}
-				currentCombination.add(key);
-			}
-
-			if (isValid) {
-				combinations.add(String.join(" ", currentCombination));
-			}
-
-			// Increment indices
-			int k = groupedValues.size() - 1;
-			while (k >= 0 && indices[k] == groupedValues.get(k).size() - 1) {
-				indices[k] = 0;
-				k--;
-			}
-
-			if (k < 0) {
-				break;
-			}
-
-			indices[k]++;
-		}
-
-
-		/*
-		String signature = "F1 F2";
-
+		// QUICK MOCK
 		// Index building
+		/*
 		TreeMap<String, Integer> valueToIndex = new TreeMap<>();
 		valueToIndex.put("F1_A1", 1);
 		valueToIndex.put("F1_A2", 2);
@@ -388,9 +181,12 @@ public class AsapApplication implements CommandLineRunner {
 		indexToValue.put(3, "F2_B1");
 		indexToValue.put(4, "F2_B2");
 		indexToValue.put(5, "F3_C1");
+		 */
 
 
 		// Row bitset mapping
+
+		/*
 		var r1 = new BitSet();
 		r1.set(valueToIndex.get("F1_A1"));
 		r1.set(valueToIndex.get("F2_B1"));
@@ -406,9 +202,11 @@ public class AsapApplication implements CommandLineRunner {
 		var r4 = new BitSet();
 		r4.set(valueToIndex.get("F2_B2"));
 		r4.set(valueToIndex.get("F3_C1"));
+		 */
 
 
 		// Raw tables aggregation
+		/*
 		TreeMap<String, Table> aggregationRawTables = new TreeMap<>();
 		TreeSet<String> tableNames = new TreeSet<>();
 
@@ -436,8 +234,49 @@ public class AsapApplication implements CommandLineRunner {
 
 		aggregationRawTables.put("table_1", table1);
 		aggregationRawTables.put("table_2", table2);
+		*/
 
 
+		String signature = "F1 F2";
+
+		String tables = "test";
+		String folder = "test";
+
+		ObjectArrayList<String> filePrdList = new ObjectArrayList<>();
+		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") ) {
+			if ( tables.equalsIgnoreCase("ZZK9") )
+				filePrdList.addAll(Arrays.stream(ZZK9Table.TABLES.split("\n")).toList());
+			else if ( tables.equalsIgnoreCase("P22") ) {
+				filePrdList.addAll(Arrays.stream(P22Table.TABLES.split("\n")).toList());
+			} else {
+				filePrdList.addAll(Arrays.stream(TestTable.TEST_TABLES.split("\n")).toList());
+			}
+		} else {
+			throw new IllegalArgumentException("Table not supported, only support P22 ZZK9");
+		}
+
+
+		AtomicInteger globalIdx = new AtomicInteger(1);
+		HashSet<String> characteristic_value_for_tables = new HashSet<>();
+		TreeMap<String, Integer> valueToIndex = new TreeMap<>();
+		TreeMap<Integer, String> indexToValue = new TreeMap<>();
+
+		for (String file : filePrdList) {
+			Loader.readTableAndBuildIndexMap(folder, file, characteristic_value_for_tables, valueToIndex, indexToValue, globalIdx);
+		}
+
+		// Raw tables aggregation
+		TreeMap<String, Table> aggregationRawTables = new TreeMap<>();
+		TreeSet<String> tableNames = new TreeSet<>();
+		for (String file: filePrdList ) {
+			Table table = new Table(file);
+			TreeMap<String, Row> valuesTable = new TreeMap<>();
+			Loader.readTableAndBuildTableAggregation(folder, file, valueToIndex, indexToValue, file, table, valuesTable);
+			tableNames.add(file);
+			aggregationRawTables.put(file, table);
+		}
+
+		LOG.info("Build index map : {}", valueToIndex);
 
 		// Build pseudo tables
 		TreeMap<String, PseudoTable> aggregationPseudoTables = new TreeMap<>();
@@ -552,8 +391,6 @@ public class AsapApplication implements CommandLineRunner {
 			System.out.println(combination);
 		}
 
-
-		*/
 
 	}
 }
