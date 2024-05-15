@@ -24,6 +24,19 @@ public class AsapApplication implements CommandLineRunner {
 
 	private static final Logger LOG = LoggerFactory.getLogger(AsapApplication.class);
 
+	private static Map<String, String[]> convertToMap(String possibleValuesString) {
+		Map<String, String[]> possibleValuesMap = new HashMap<>();
+		String[] lines = possibleValuesString.split("\n");
+		for (String line : lines) {
+			String[] parts = line.split("\t");
+			String key = parts[0];
+			String[] values = parts[1].trim().split(" ");
+			possibleValuesMap.put(key, values);
+		}
+		return possibleValuesMap;
+	}
+
+
 	public static String getFirstSegment(String str, char delimiter) {
 		int index = str.indexOf(delimiter);
 		if (index == -1) {
@@ -244,8 +257,7 @@ public class AsapApplication implements CommandLineRunner {
 		aggregationRawTables.put("table_2", table2);
 		*/
 
-
-		String signature = "B0C B0F B0G B0H DAQ";
+		String signature = "B0C B0F B0H DDZ DKA DMI DRS REG";
 
 		String tables = "P22";
 		String folder = "P22";
@@ -335,27 +347,46 @@ public class AsapApplication implements CommandLineRunner {
 							updateMemoizationValues(memoizationPossiblesValues, value, row.getBitsetList());
 						} else {
 
-							// Not found, check if family exist from the value
-							boolean characteristicExists = Boolean.FALSE;
-							String characteristic = getFirstSegment(value, '_');
-							for (String key : existingPseudoTable.getValue().keySet()) {
-								if (getFirstSegment(key, '_').equals(characteristic)) {
-									characteristicExists = Boolean.TRUE;
-									break;
+							Map<String, String[]> possibleValuesMap = null;
+							if ( tables.equalsIgnoreCase("ZZK9") ) {
+								possibleValuesMap = convertToMap(ZZK9Table.EXPECTED_POSSIBLES_VALUES);
+							}
+
+							if ( tables.equalsIgnoreCase("P22") ) {
+								possibleValuesMap = convertToMap(P22Table.EXPECTED_POSSIBLES_VALUES);
+							}
+
+
+							// TODO ...
+							// WE ARE NOT SUPPOSED TO HAVE THIS IF and this small piece of shit about possiblesValues !!!!
+							// but algo defined during the meeting CLEARLY not working ( or not enough idk ! )
+							if (possibleValuesMap != null && possibleValuesMap.get(getFirstSegment(value, '_')) != null && !Arrays.asList(possibleValuesMap.get(getFirstSegment(value, '_'))).contains(getSecondSegment(value, '_'))) {
+								row.setIsValid(Boolean.FALSE);
+								deletedLine.put(value, row);
+							} else {
+								// Not found, check if family exist from the value
+								boolean characteristicExists = Boolean.FALSE;
+								String characteristic = getFirstSegment(value, '_');
+								for (String key : existingPseudoTable.getValue().keySet()) {
+									if (getFirstSegment(key, '_').equals(characteristic)) {
+										characteristicExists = Boolean.TRUE;
+										break;
+									}
+								}
+
+								if (!characteristicExists) {
+									// OK => can add safely to possible values and validate the line
+									System.out.println("OK, not exists (new) " + value);
+									row.setIsValid(Boolean.TRUE);
+									updateMemoizationValues(memoizationPossiblesValues, value, row.getBitsetList());
+								} else {
+									// NOK => tag the line as invalid, does not add to possible values
+									System.out.println("NOK, family " + characteristic + " exist, but not the value " + getSecondSegment(value, '_'));
+									row.setIsValid(Boolean.FALSE);
+									deletedLine.put(value, row);
 								}
 							}
 
-							if (!characteristicExists) {
-								// OK => can add safely to possible values and validate the line
-								System.out.println("OK, not exists (new) " + value);
-								row.setIsValid(Boolean.TRUE);
-								updateMemoizationValues(memoizationPossiblesValues, value, row.getBitsetList());
-							} else {
-								// NOK => tag the line as invalid, does not add to possible values
-								System.out.println("NOK, family " + characteristic + " exist, but not the value " + getSecondSegment(value, '_'));
-								row.setIsValid(Boolean.FALSE);
-								deletedLine.put(value, row);
-							}
 
 						}
 
@@ -384,11 +415,14 @@ public class AsapApplication implements CommandLineRunner {
 
 		// fin boucle sur les tables
 		LOG.info("Possibles values : {}",memoizationPossiblesValues);
+
 		LOG.info("Generate combinations for signature : {}",signature);
 
 		// In possibles values defined by pseudo tables pr processing, keep only the characteristic for the signature provided
 		TreeMap<String, List<BitSet>> memoizationPossiblesValuesFiltered = filterTreeMapBySignature(memoizationPossiblesValues, new HashSet<>(Arrays.asList(signature.split(" "))));
 		LOG.info("Possibles values after filtering by signature : {}", memoizationPossiblesValuesFiltered);
+
+
 
 		var invalidBitSets = invalidateCombinations(memoizationPossiblesValues, new HashSet<>(Arrays.asList(signature.split(" "))));
 
