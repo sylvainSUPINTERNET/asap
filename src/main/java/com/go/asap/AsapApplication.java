@@ -105,6 +105,14 @@ public class AsapApplication implements CommandLineRunner {
 			groupedValues.add(familyValues);
 		}
 
+		// Vérifier que chaque groupe de valeurs n'est pas vide
+		for (List<String> familyValues : groupedValues) {
+			if (familyValues.isEmpty()) {
+				System.out.println("Aucun élément trouvé pour une des familles dans la signature.");
+				return combinations;
+			}
+		}
+
 		// Générer les combinaisons
 		generateCombinationsLoop(groupedValues, filteredValues, invalidBitSets, combinations);
 		return combinations;
@@ -243,7 +251,7 @@ public class AsapApplication implements CommandLineRunner {
 		String folder = "test";
 
 		ObjectArrayList<String> filePrdList = new ObjectArrayList<>();
-		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") ) {
+		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") || tables.equalsIgnoreCase("tmp") ) {
 			if ( tables.equalsIgnoreCase("ZZK9") )
 				filePrdList.addAll(Arrays.stream(ZZK9Table.TABLES.split("\n")).toList());
 			else if ( tables.equalsIgnoreCase("P22") ) {
@@ -390,6 +398,8 @@ public class AsapApplication implements CommandLineRunner {
 		for (String combination : combinations) {
 			System.out.println(combination);
 		}
+
+		System.out.println(combinations.size() + " for signature " + signature);
 
 
 	}

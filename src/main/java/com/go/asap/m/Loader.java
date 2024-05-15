@@ -79,7 +79,8 @@ public class Loader {
     }
 
     public static void readTableAndBuildTableAggregation(String folder, String scopeFilter,
-                                                         TreeMap<String, Integer> valueToIndex, TreeMap<Integer, String> indexToValue, String fileName, Table table, TreeMap<String, Row> valuesTable) {
+                                                         TreeMap<String, Integer> valueToIndex, TreeMap<Integer, String> indexToValue,
+                                                         String fileName, Table table, TreeMap<String, Row> valuesTable) {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         List<URL> resources;
         try {
@@ -102,7 +103,6 @@ public class Loader {
                     System.out.println("Files matching pattern: " + files);
 
                     for (Path file : files) {
-
                         try (BufferedReader reader = Files.newBufferedReader(file)) {
                             // Read first line to get column names
                             String headerLine = reader.readLine();
@@ -113,6 +113,8 @@ public class Loader {
 
                             String line;
                             while ((line = reader.readLine()) != null) {
+                                System.out.println("LINE + " + line);
+
                                 String[] values = line.split("\\s+");
 
                                 if (values.length != headers.length) {
@@ -120,28 +122,27 @@ public class Loader {
                                     continue;
                                 }
 
-
-                                String first = null;
-                                BitSet r = new BitSet();
                                 for (int i = 0; i < headers.length; i++) {
                                     String combinedValue = headers[i] + "_" + values[i];
-                                    if ( i == 0 ) {
-                                        first = combinedValue;
+                                    BitSet bitSet = new BitSet(headers.length);
+
+                                    // Set the bit for each column's value
+                                    for (int j = 0; j < headers.length; j++) {
+                                        String combined = headers[j] + "_" + values[j];
+                                        bitSet.set(valueToIndex.get(combined));
                                     }
-                                    System.out.println("Adding value: " + combinedValue);
-                                    r.set(valueToIndex.get(combinedValue));
+
+                                    if (valuesTable.containsKey(combinedValue)) {
+                                        var existing = valuesTable.get(combinedValue);
+                                        existing.getBitsetList().add(bitSet);
+                                    } else {
+                                        ArrayList<BitSet> bitSetList = new ArrayList<>();
+                                        bitSetList.add(bitSet);
+                                        valuesTable.put(combinedValue, new Row(Boolean.TRUE, bitSetList));
+                                    }
                                 }
-
-                                if ( valuesTable.containsKey(first) ) {
-                                    var existing = valuesTable.get(first);
-                                    existing.getBitsetList().add(r);
-                                } else {
-                                    valuesTable.put(first, new Row(Boolean.TRUE, List.of(r)));
-                                }
-
-                                table.setValue(valuesTable);
-
                             }
+                            table.setValue(valuesTable);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
