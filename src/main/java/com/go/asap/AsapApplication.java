@@ -102,6 +102,7 @@ public class AsapApplication implements CommandLineRunner {
 	}
 
 
+	/*
 	public static Set<String> generateCombinationsForSignature(TreeMap<String, List<BitSet>> filteredValues, Set<BitSet> invalidBitSets, List<String> signature) {
 		Set<String> combinations = new HashSet<>();
 		List<String> families = new ArrayList<>(signature);
@@ -130,30 +131,151 @@ public class AsapApplication implements CommandLineRunner {
 		generateCombinationsLoop(groupedValues, filteredValues, invalidBitSets, combinations);
 		return combinations;
 	}
+	*/
 
-	private static void generateCombinationsLoop(List<List<String>> groupedValues, TreeMap<String, List<BitSet>> filteredValues, Set<BitSet> invalidBitSets, Set<String> combinations) {
+	private static BitSet createBitSet(int... indices) {
+		BitSet bitSet = new BitSet();
+		for (int index : indices) {
+			bitSet.set(index);
+		}
+		return bitSet;
+	}
+
+	/*
+	public static BitSet combineBitSets(List<BitSet> bitSetList, Set<BitSet> invalidBitSetList) {
+		BitSet combinedBitSet = new BitSet();
+
+		for (BitSet bitSet : bitSetList) {
+			if (!invalidBitSetList.contains(bitSet)) {
+				combinedBitSet.or(bitSet);
+			}
+		}
+
+		return combinedBitSet;
+	}*/
+
+	public static BitSet combineBitSets(List<BitSet> bitSetList, Set<BitSet> invalidBitSetList) {
+		BitSet combinedBitSet = new BitSet();
+
+		for (BitSet bitSet : bitSetList) {
+			combinedBitSet.or(bitSet);
+		}
+
+		return combinedBitSet;
+	}
+	public static int traverseGroups(Map<String, Map<String, BitSet>> groups, String signature, Set<BitSet> invalidBitSets, TreeMap<String, Integer> valueToIndex) {
+		String[] groupOrder = signature.split(" ");
+		int combinationCount = 0;
+
+		Map<String, BitSet> firstGroup = groups.get(groupOrder[0]);
+		Map<String, BitSet> secondGroup = groups.get(groupOrder[1]);
+
+		for (Map.Entry<String, BitSet> entry1 : firstGroup.entrySet()) {
+			String key1 = entry1.getKey();
+			BitSet bitSet1 = entry1.getValue();
+			if (!isValid(bitSet1, invalidBitSets)) {
+				continue;
+			}
+
+			for (Map.Entry<String, BitSet> entry2 : secondGroup.entrySet()) {
+				String key2 = entry2.getKey();
+				BitSet bitSet2 = entry2.getValue();
+
+
+				// key1 index
+				int idx = valueToIndex.get(key1);
+
+				// Si je retrouve bien l'index dans le bitset du key2
+				if ( !bitSet2.get(idx) ) {
+					continue;
+				} else {
+					System.out.println(key1 + " -> " + key2);
+					combinationCount++;
+				}
+
+
+			}
+		}
+
+		return combinationCount;
+	}
+
+	private static boolean isCombinationValid(BitSet bitSet1, BitSet bitSet2, Set<BitSet> invalidBitSets) {
+
+
+
+		// Combiner les bitsets et vérifier la validité
+		BitSet combinedBitSet = (BitSet) bitSet1.clone();
+		combinedBitSet.and(bitSet2);
+
+		System.out.println("TEST " + combinedBitSet);
+
+		return isValid(combinedBitSet, invalidBitSets);
+	}
+
+	private static boolean isValid(BitSet bitSet, Set<BitSet> invalidBitSets) {
+		for (BitSet invalidBitSet : invalidBitSets) {
+			if (bitSet.equals(invalidBitSet)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/*
+	public static void generateCombinationsLoop(List<List<String>> groupedValues, TreeMap<String, List<BitSet>> filteredValues, Set<BitSet> invalidBitSets, Set<String> combinations) {
+
+		groupedValues.forEach( group -> {
+			System.out.println("Group : " + group);
+
+			group.forEach( value -> {
+
+			});
+
+
+		});
+
 		int[] indices = new int[groupedValues.size()];
 
 		while (true) {
 			List<String> currentCombination = new ArrayList<>();
-			BitSet currentBitSet = new BitSet();
+			List<BitSet> activeBitSets = new ArrayList<>();
 			boolean isValid = true;
 
 			for (int i = 0; i < groupedValues.size(); i++) {
 				String key = groupedValues.get(i).get(indices[i]);
-				BitSet bitSet = filteredValues.get(key).get(0); // Assuming each key has at least one BitSet
+				List<BitSet> bitSetsForKey = filteredValues.get(key);
+				BitSet combinedBitSet = new BitSet();
 
-				if (currentCombination.isEmpty()) {
-					currentBitSet.or(bitSet);
-				} else {
-					BitSet newBitSet = (BitSet) currentBitSet.clone();
-					newBitSet.and(bitSet);
-					if (newBitSet.isEmpty() || invalidBitSets.contains(newBitSet)) {
-						isValid = false;
-						break;
+				for (BitSet bitSet : bitSetsForKey) {
+					if (!invalidBitSets.contains(bitSet)) {
+						combinedBitSet.or(bitSet);
 					}
-					currentBitSet = newBitSet;
 				}
+
+				if (i == 0) {
+					for (BitSet bitSet : bitSetsForKey) {
+						if (!invalidBitSets.contains(bitSet)) {
+							activeBitSets.add((BitSet) bitSet.clone());
+						}
+					}
+				} else {
+					List<BitSet> newActiveBitSets = new ArrayList<>();
+					for (BitSet activeBitSet : activeBitSets) {
+						BitSet intersectedBitSet = (BitSet) activeBitSet.clone();
+						intersectedBitSet.and(combinedBitSet);
+						if (!intersectedBitSet.isEmpty() && !invalidBitSets.contains(intersectedBitSet)) {
+							newActiveBitSets.add(intersectedBitSet);
+						}
+					}
+					activeBitSets = newActiveBitSets;
+				}
+
+				if (activeBitSets.isEmpty()) {
+					isValid = false;
+					break;
+				}
+
 				currentCombination.add(key);
 			}
 
@@ -174,7 +296,12 @@ public class AsapApplication implements CommandLineRunner {
 
 			indices[k]++;
 		}
+
+
 	}
+
+	 */
+
 
 
 	public static void main(String[] args) {
@@ -257,13 +384,67 @@ public class AsapApplication implements CommandLineRunner {
 		aggregationRawTables.put("table_2", table2);
 		*/
 
-		String signature = "B0F B0G B0E";
 
-		String tables = "tmp";
-		String folder = "tmp";
+	/*
+		TreeMap<String, Integer> indexMap = new TreeMap<>();
+		indexMap.put("B0G_01", 1);
+		indexMap.put("B0H_DB", 2);
+		indexMap.put("DGM_04", 3);
+		indexMap.put("DGM_05", 4);
+
+
+		TreeMap<String, List<BitSet>> memoizationPossiblesValues = new TreeMap<>();
+
+		List<BitSet> BOG_01_BITSET_LIST = new ArrayList<>();
+		BitSet b = new BitSet();
+		b.set(indexMap.get("B0G_01"));
+		b.set(indexMap.get("B0H_DB"));
+		b.set(indexMap.get("DGM_04"));
+		b.set(100);
+		BOG_01_BITSET_LIST.add(b);
+		memoizationPossiblesValues.put("B0G_01", BOG_01_BITSET_LIST);
+
+		List<BitSet> BOH_DB_BITSET_LIST = new ArrayList<>();
+		BitSet b2 = new BitSet();
+		b2.set(indexMap.get("B0G_01"));
+		b2.set(indexMap.get("B0H_DB"));
+		b2.set(indexMap.get("DGM_04"));
+		BOH_DB_BITSET_LIST.add(b2);
+		memoizationPossiblesValues.put("B0H_DB", BOH_DB_BITSET_LIST);
+
+		List<BitSet> DGM_04_BITSET_LIST = new ArrayList<>();
+		BitSet b3 = new BitSet();
+		b3.set(indexMap.get("B0G_01"));
+		b3.set(indexMap.get("B0H_DB"));
+		b3.set(indexMap.get("DGM_04"));
+		DGM_04_BITSET_LIST.add(b3);
+		memoizationPossiblesValues.put("DGM_04", DGM_04_BITSET_LIST);
+
+		var signature = "B0G B0H DGM";
+		var possiblesValues = List.of("B0G_01", "B0H_DB", "DGM_04", "DGM_05");
+
+
+		HashMap<String, List<List<BitSet>>> groups = new HashMap<>();
+		for (String possibleValue : possiblesValues) {
+			if ( groups.containsKey(getFirstSegment(possibleValue, '_')) ) {
+				groups.get(getFirstSegment(possibleValue, '_')).add(memoizationPossiblesValues.get(possibleValue));
+			} else {
+				groups.put(getFirstSegment(possibleValue, '_'), new ArrayList<>(List.of(memoizationPossiblesValues.get(possibleValue))));
+			}
+		}
+
+		System.out.println(groups);
+
+		*/
+
+
+		String signature = "B0G B0E";
+
+		String tables = "m";
+		String folder = "m";
 
 		ObjectArrayList<String> filePrdList = new ObjectArrayList<>();
-		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") || tables.equalsIgnoreCase("tmp") ) {
+		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") || tables.equalsIgnoreCase("tmp") || tables.equalsIgnoreCase("m") ) {
 			if ( tables.equalsIgnoreCase("ZZK9") )
 				filePrdList.addAll(Arrays.stream(ZZK9Table.TABLES.split("\n")).toList());
 			else if ( tables.equalsIgnoreCase("P22") ) {
@@ -303,7 +484,7 @@ public class AsapApplication implements CommandLineRunner {
 		TreeMap<String, List<BitSet>> memoizationPossiblesValues = new TreeMap<>();
 
 		List<String> rawTableParsed = new ArrayList<>();
-		TreeMap<String, Row> deletedLine = new TreeMap<>();
+		TreeMap<String, Row> invalidValues = new TreeMap<>();
 		for ( String tableName : tableNames ) {
 			if ( aggregationPseudoTables.isEmpty() ) {
 				LOG.info("Initializing pseudoTable with the first table {} ...", tableName);
@@ -362,7 +543,7 @@ public class AsapApplication implements CommandLineRunner {
 							// but algo defined during the meeting CLEARLY not working ( or not enough idk ! )
 							//if (possibleValuesMap != null && possibleValuesMap.get(getFirstSegment(value, '_')) != null && !Arrays.asList(possibleValuesMap.get(getFirstSegment(value, '_'))).contains(getSecondSegment(value, '_'))) {
 							//	row.setIsValid(Boolean.FALSE);
-							//	deletedLine.put(value, row);
+							//	invalidValues.put(value, row);
 							// } else {
 								// Not found, check if family exist from the value
 								boolean characteristicExists = Boolean.FALSE;
@@ -383,7 +564,7 @@ public class AsapApplication implements CommandLineRunner {
 									// NOK => tag the line as invalid, does not add to possible values
 									System.out.println("NOK, family " + characteristic + " exist, but not the value " + getSecondSegment(value, '_'));
 									row.setIsValid(Boolean.FALSE);
-									deletedLine.put(value, row);
+									invalidValues.put(value, row);
 								}
 							//}
 
@@ -424,16 +605,49 @@ public class AsapApplication implements CommandLineRunner {
 
 
 
-		var invalidBitSets = invalidateCombinations(memoizationPossiblesValues, new HashSet<>(Arrays.asList(signature.split(" "))));
+		// TODO ? ça supprime toute la ligne je sais pas si c'est ok ça pour moi il faut garder l'index plutot, pas le bitset je pense
+		//var invalidBitSets = invalidateCombinations(memoizationPossiblesValues, new HashSet<>(Arrays.asList(signature.split(" "))));
 
 		// Generate valid combinations
-		Set<String> combinations = generateCombinationsForSignature(memoizationPossiblesValuesFiltered, invalidBitSets, Arrays.asList(signature.split(" ")));
-
+		//Set<String> combinations = generateCombinationsForSignature(memoizationPossiblesValuesFiltered, invalidBitSets, Arrays.asList(signature.split(" ")));
+		/*
 		for (String combination : combinations) {
 			System.out.println(combination);
 		}
 
 		System.out.println(combinations.size() + " combinations for signature " + signature);
+		 */
+
+
+		// Build invalid bitset from index deleted
+		Set<BitSet> invalidBitSets = new HashSet<>();
+		BitSet ib = new BitSet();
+		invalidValues.forEach((key, value) -> {
+			System.out.println("Deleted value " + key);
+			ib.set(valueToIndex.get(key));
+		});
+		invalidBitSets.add(ib);
+
+
+		// Build group for traverse
+		// We regroup for each char of signature, value found in table and bitset ( filter keep only valid bitset )
+		Map<String, Map<String, BitSet>> groups = new LinkedHashMap<>();
+		String[] signatureSplited = signature.split(" ");
+
+		Arrays.asList(signatureSplited).forEach( s -> {
+			groups.computeIfAbsent(s, k -> new LinkedHashMap<>());
+		});
+
+		memoizationPossiblesValuesFiltered.forEach( (k, bitsetList) -> {
+			String firstSegment = getFirstSegment(k, '_');
+			if ( groups.containsKey(firstSegment) ) {
+				groups.get(firstSegment).put(k, combineBitSets(bitsetList, invalidBitSets));
+			}
+		});
+
+		int combinationCount = traverseGroups(groups, signature, invalidBitSets, valueToIndex);
+		System.out.println("Nombre de combinaisons valides: " + combinationCount);
+
 
 
 	}
