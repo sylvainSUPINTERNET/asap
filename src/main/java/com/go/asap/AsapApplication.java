@@ -257,10 +257,10 @@ public class AsapApplication implements CommandLineRunner {
 		aggregationRawTables.put("table_2", table2);
 		*/
 
-		String signature = "B0C B0F B0H DDZ DKA DMI DRS REG";
+		String signature = "B0F B0G B0E";
 
-		String tables = "P22";
-		String folder = "P22";
+		String tables = "tmp";
+		String folder = "tmp";
 
 		ObjectArrayList<String> filePrdList = new ObjectArrayList<>();
 		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") || tables.equalsIgnoreCase("tmp") ) {
@@ -347,23 +347,23 @@ public class AsapApplication implements CommandLineRunner {
 							updateMemoizationValues(memoizationPossiblesValues, value, row.getBitsetList());
 						} else {
 
-							Map<String, String[]> possibleValuesMap = null;
-							if ( tables.equalsIgnoreCase("ZZK9") ) {
-								possibleValuesMap = convertToMap(ZZK9Table.EXPECTED_POSSIBLES_VALUES);
-							}
+							//Map<String, String[]> possibleValuesMap = null;
+							//if ( tables.equalsIgnoreCase("ZZK9") ) {
+							//	possibleValuesMap = convertToMap(ZZK9Table.EXPECTED_POSSIBLES_VALUES);
+							//}
 
-							if ( tables.equalsIgnoreCase("P22") ) {
-								possibleValuesMap = convertToMap(P22Table.EXPECTED_POSSIBLES_VALUES);
-							}
+							//if ( tables.equalsIgnoreCase("P22") ) {
+							//	possibleValuesMap = convertToMap(P22Table.EXPECTED_POSSIBLES_VALUES);
+							//}
 
 
 							// TODO ...
 							// WE ARE NOT SUPPOSED TO HAVE THIS IF and this small piece of shit about possiblesValues !!!!
 							// but algo defined during the meeting CLEARLY not working ( or not enough idk ! )
-							if (possibleValuesMap != null && possibleValuesMap.get(getFirstSegment(value, '_')) != null && !Arrays.asList(possibleValuesMap.get(getFirstSegment(value, '_'))).contains(getSecondSegment(value, '_'))) {
-								row.setIsValid(Boolean.FALSE);
-								deletedLine.put(value, row);
-							} else {
+							//if (possibleValuesMap != null && possibleValuesMap.get(getFirstSegment(value, '_')) != null && !Arrays.asList(possibleValuesMap.get(getFirstSegment(value, '_'))).contains(getSecondSegment(value, '_'))) {
+							//	row.setIsValid(Boolean.FALSE);
+							//	deletedLine.put(value, row);
+							// } else {
 								// Not found, check if family exist from the value
 								boolean characteristicExists = Boolean.FALSE;
 								String characteristic = getFirstSegment(value, '_');
@@ -385,7 +385,7 @@ public class AsapApplication implements CommandLineRunner {
 									row.setIsValid(Boolean.FALSE);
 									deletedLine.put(value, row);
 								}
-							}
+							//}
 
 
 						}
