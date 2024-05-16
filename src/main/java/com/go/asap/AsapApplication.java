@@ -163,6 +163,65 @@ public class AsapApplication implements CommandLineRunner {
 
 		return combinedBitSet;
 	}
+
+
+	public static int traverseGroupsV2(Map<String, Map<String, BitSet>> groups, String signature, Set<BitSet> invalidBitSets, TreeMap<String, Integer> valueToIndex) {
+		String[] groupOrder = signature.split(" ");
+		int combinationCount = 0;
+
+		// Commencez par le premier groupe
+		Map<String, BitSet> firstGroup = groups.get(groupOrder[0]);
+		for (Map.Entry<String, BitSet> entry1 : firstGroup.entrySet()) {
+			String key1 = entry1.getKey();
+			BitSet bitSet1 = entry1.getValue();
+			if (!isValid(bitSet1, invalidBitSets)) {
+				continue;
+			}
+			// Liste pour accumuler les clés de la combinaison
+			List<String> combination = new ArrayList<>();
+			combination.add(key1);
+			// Appelez la fonction récursive pour traiter les groupes suivants
+			combinationCount += traverseNextGroups(groups, groupOrder, 1, key1, bitSet1, invalidBitSets, valueToIndex, combination);
+		}
+
+		return combinationCount;
+	}
+
+	private static int traverseNextGroups(Map<String, Map<String, BitSet>> groups, String[] groupOrder, int currentGroupIndex, String previousKey, BitSet previousBitSet, Set<BitSet> invalidBitSets, TreeMap<String, Integer> valueToIndex, List<String> combination) {
+		// Si nous avons atteint la fin de la chaîne de groupes, affichez la combinaison et retournez 1 pour indiquer une combinaison valide
+		if (currentGroupIndex >= groupOrder.length) {
+			System.out.println(String.join(" -> ", combination));
+			return 1;
+		}
+
+		Map<String, BitSet> currentGroup = groups.get(groupOrder[currentGroupIndex]);
+		int combinationCount = 0;
+		int previousIndex = valueToIndex.get(previousKey);
+
+		for (Map.Entry<String, BitSet> entry : currentGroup.entrySet()) {
+			String key = entry.getKey();
+			BitSet currentBitSet = entry.getValue();
+			if (!isValid(currentBitSet, invalidBitSets)) {
+				continue;
+			}
+
+			// Vérifiez si l'index précédent est présent dans le bitset actuel
+			if (currentBitSet.get(previousIndex)) {
+				// Ajoutez la clé actuelle à la combinaison
+				combination.add(key);
+				// Appelez récursivement la fonction pour le prochain groupe
+				combinationCount += traverseNextGroups(groups, groupOrder, currentGroupIndex + 1, key, currentBitSet, invalidBitSets, valueToIndex, combination);
+				// Retirez la clé actuelle après le retour de la récursion pour essayer la prochaine clé
+				combination.remove(combination.size() - 1);
+			}
+		}
+
+		return combinationCount;
+	}
+
+
+	// TODO logic here
+	// Here very basic exemple for 2 groups ( 2 characteristics )
 	public static int traverseGroups(Map<String, Map<String, BitSet>> groups, String signature, Set<BitSet> invalidBitSets, TreeMap<String, Integer> valueToIndex) {
 		String[] groupOrder = signature.split(" ");
 		int combinationCount = 0;
@@ -189,8 +248,12 @@ public class AsapApplication implements CommandLineRunner {
 				if ( !bitSet2.get(idx) ) {
 					continue;
 				} else {
+					// TODO: so here obviously, we have to repeat the same thing :
+					// TODO : wego on 3 groups, check if we have key1 index value (BOH_01) from group 1, and index value ( BOA_00)  from group 2 in key3 bitset for new index ( B0Z_XX )
+					// TODO : So yes, we can do it recursively !
 					System.out.println(key1 + " -> " + key2);
 					combinationCount++;
+
 				}
 
 
@@ -198,19 +261,6 @@ public class AsapApplication implements CommandLineRunner {
 		}
 
 		return combinationCount;
-	}
-
-	private static boolean isCombinationValid(BitSet bitSet1, BitSet bitSet2, Set<BitSet> invalidBitSets) {
-
-
-
-		// Combiner les bitsets et vérifier la validité
-		BitSet combinedBitSet = (BitSet) bitSet1.clone();
-		combinedBitSet.and(bitSet2);
-
-		System.out.println("TEST " + combinedBitSet);
-
-		return isValid(combinedBitSet, invalidBitSets);
 	}
 
 	private static boolean isValid(BitSet bitSet, Set<BitSet> invalidBitSets) {
@@ -221,6 +271,8 @@ public class AsapApplication implements CommandLineRunner {
 		}
 		return true;
 	}
+
+
 
 	/*
 	public static void generateCombinationsLoop(List<List<String>> groupedValues, TreeMap<String, List<BitSet>> filteredValues, Set<BitSet> invalidBitSets, Set<String> combinations) {
@@ -438,10 +490,10 @@ public class AsapApplication implements CommandLineRunner {
 		*/
 
 
-		String signature = "B0G B0E";
+		String signature = "B0H DAB DLX DYR REG"; //"B0F B0G";
 
-		String tables = "m";
-		String folder = "m";
+		String tables = "P22"; // "m"
+		String folder = "P22"; // "m"
 
 		ObjectArrayList<String> filePrdList = new ObjectArrayList<>();
 		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") || tables.equalsIgnoreCase("tmp") || tables.equalsIgnoreCase("m") ) {
@@ -645,7 +697,7 @@ public class AsapApplication implements CommandLineRunner {
 			}
 		});
 
-		int combinationCount = traverseGroups(groups, signature, invalidBitSets, valueToIndex);
+		int combinationCount = traverseGroupsV2(groups, signature, invalidBitSets, valueToIndex);
 		System.out.println("Nombre de combinaisons valides: " + combinationCount);
 
 
