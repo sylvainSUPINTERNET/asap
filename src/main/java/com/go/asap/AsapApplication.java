@@ -152,7 +152,9 @@ public class AsapApplication implements CommandLineRunner {
 				//System.out.println(display);
 			//}
 
-			String display = String.join(" -> ", combination);
+			//String display = String.join(" -> ", combination);
+			String display = String.join(" ", combination);
+			display = display.replace("_", "");
 			System.out.println(display);
 
 			return 1;
@@ -227,7 +229,8 @@ public class AsapApplication implements CommandLineRunner {
 					// TODO: so here obviously, we have to repeat the same thing :
 					// TODO : wego on 3 groups, check if we have key1 index value (BOH_01) from group 1, and index value ( BOA_00)  from group 2 in key3 bitset for new index ( B0Z_XX )
 					// TODO : So yes, we can do it recursively !
-					System.out.println(key1 + " -> " + key2);
+					//System.out.println(key1 + " -> " + key2);
+					System.out.println(key1.replace("_","") + " " + key2.replace("_",""));
 					combinationCount++;
 
 				}
@@ -457,10 +460,10 @@ public class AsapApplication implements CommandLineRunner {
 
 		*/
 
-		String signature = "B0F B0G"; //"B0E B0H B0J";
+		String signature = "B0C B0F B0G B0H DAQ"; //"B0E B0F DFH REG"; //"B0E B0H B0J";
 
-		String tables = "m"; // "m"
-		String folder = "m"; // "m"
+		String tables = "P22"; // "m"
+		String folder = "P22"; // "m"
 
 		ObjectArrayList<String> filePrdList = new ObjectArrayList<>();
 		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") || tables.equalsIgnoreCase("tmp") || tables.equalsIgnoreCase("m") || tables.equalsIgnoreCase("spe")  || tables.equalsIgnoreCase("m2")) {
@@ -536,8 +539,10 @@ public class AsapApplication implements CommandLineRunner {
 				Table newTableToVerse = aggregationRawTables.get(tableName);
 
 				newTableToVerse.getValue().forEach((value, row) -> {
-					//System.out.println("----> incoming value : " + value + " - bitset " + row.getBitsetList());
-					System.out.println("----> incoming value : \" + value ");
+					if ( value.equalsIgnoreCase("B0C_4M")) {
+						System.out.println("PROBLEM");
+					}
+					System.out.println("----> incoming value : "+value);
 					for ( String parsedTable: rawTableParsed ) {
 						System.out.println("-----> Verify if value existing in " + parsedTable);
 
@@ -599,13 +604,57 @@ public class AsapApplication implements CommandLineRunner {
 		}
 
 		// fin boucle sur les tables
-		LOG.info("Possibles values : {}",memoizationPossiblesValues);
+		LOG.info("Possibles values : ");
+		// Map temporaire pour regrouper les valeurs par préfixe
+		TreeMap<String, List<String>> groupedValues = new TreeMap<>();
+
+		// Parcourir chaque entrée du TreeMap
+		for (Map.Entry<String, List<BitSet>> entry : memoizationPossiblesValues.entrySet()) {
+			String key = entry.getKey();
+			String prefix = key.split("_")[0];
+			String suffix = key.split("_")[1];
+
+			// Ajouter le suffixe à la liste correspondante dans le groupedValues
+			groupedValues.computeIfAbsent(prefix, k -> new ArrayList<>()).add(suffix);
+		}
+
+		// Afficher les résultats formatés
+		for (Map.Entry<String, List<String>> entry : groupedValues.entrySet()) {
+			System.out.print(entry.getKey() + ": ");
+			for (String value : entry.getValue()) {
+				System.out.print(value + " ");
+			}
+			System.out.println();
+		}
+
 
 		LOG.info("Generate combinations for signature : {}",signature);
 
 		// In possibles values defined by pseudo tables pr processing, keep only the characteristic for the signature provided
 		TreeMap<String, List<BitSet>> memoizationPossiblesValuesFiltered = filterTreeMapBySignature(memoizationPossiblesValues, new HashSet<>(Arrays.asList(signature.split(" "))));
-		LOG.info("Possibles values after filtering by signature : {}", memoizationPossiblesValuesFiltered);
+		//LOG.info("Possibles values after filtering by signature : {}", memoizationPossiblesValuesFiltered);
+
+		LOG.info("Possibles values after filtering by signature :");
+		TreeMap<String, List<String>> x = new TreeMap<>();
+
+		// Parcourir chaque entrée du TreeMap
+		for (Map.Entry<String, List<BitSet>> entry : memoizationPossiblesValuesFiltered.entrySet()) {
+			String key = entry.getKey();
+			String prefix = key.split("_")[0];
+			String suffix = key.split("_")[1];
+
+			// Ajouter le suffixe à la liste correspondante dans le groupedValues
+			x.computeIfAbsent(prefix, k -> new ArrayList<>()).add(suffix);
+		}
+
+		// Afficher les résultats formatés
+		for (Map.Entry<String, List<String>> entry : x.entrySet()) {
+			System.out.print(entry.getKey() + ": ");
+			for (String value : entry.getValue()) {
+				System.out.print(value + " ");
+			}
+			System.out.println();
+		}
 
 
 

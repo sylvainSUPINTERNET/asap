@@ -56,7 +56,7 @@ public class Loader {
                                 }
                                 for (int i = 0; i < headers.length; i++) {
                                     String combinedValue = headers[i] + "_" + values[i];
-                                    System.out.println("Adding value: " + combinedValue);
+                                    //System.out.println("Adding value: " + combinedValue);
                                     characteristic_value.add(combinedValue);
 
                                     // Add to index maps
@@ -113,7 +113,7 @@ public class Loader {
 
                             String line;
                             while ((line = reader.readLine()) != null) {
-                                System.out.println("LINE + " + line);
+                                //System.out.println("LINE + " + line);
 
                                 String[] values = line.split("\\s+");
 

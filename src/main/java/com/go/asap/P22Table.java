@@ -137,7 +137,9 @@ public class P22Table {
             "DZV\tBX BZ CA CB CC H3 K4 K5 K6 K7 KU \n" +
             "REG\tAM AP AQ AR";
 
-    public final static String TABLES = "PBV1_B0C_B0F_B0G\n" +
+    public final static String TABLES =
+            //"PBV1_B0C_B0F_B0G\n" +
+            "PBV_test\n" +
             "FAM_1PP2_AFFEC_B0P\n" +
             "FAM_1PP2_B0H_D2A\n" +
             "FAM_1PP2_B0M_B0N\n" +
