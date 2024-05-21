@@ -102,37 +102,6 @@ public class AsapApplication implements CommandLineRunner {
 	}
 
 
-	/*
-	public static Set<String> generateCombinationsForSignature(TreeMap<String, List<BitSet>> filteredValues, Set<BitSet> invalidBitSets, List<String> signature) {
-		Set<String> combinations = new HashSet<>();
-		List<String> families = new ArrayList<>(signature);
-		List<List<String>> groupedValues = new ArrayList<>();
-
-		// Grouper les valeurs par famille
-		for (String family : families) {
-			List<String> familyValues = new ArrayList<>();
-			for (String key : filteredValues.keySet()) {
-				if (key.startsWith(family)) {
-					familyValues.add(key);
-				}
-			}
-			groupedValues.add(familyValues);
-		}
-
-		// Vérifier que chaque groupe de valeurs n'est pas vide
-		for (List<String> familyValues : groupedValues) {
-			if (familyValues.isEmpty()) {
-				System.out.println("Aucun élément trouvé pour une des familles dans la signature.");
-				return combinations;
-			}
-		}
-
-		// Générer les combinaisons
-		generateCombinationsLoop(groupedValues, filteredValues, invalidBitSets, combinations);
-		return combinations;
-	}
-	*/
-
 	private static BitSet createBitSet(int... indices) {
 		BitSet bitSet = new BitSet();
 		for (int index : indices) {
@@ -141,18 +110,6 @@ public class AsapApplication implements CommandLineRunner {
 		return bitSet;
 	}
 
-	/*
-	public static BitSet combineBitSets(List<BitSet> bitSetList, Set<BitSet> invalidBitSetList) {
-		BitSet combinedBitSet = new BitSet();
-
-		for (BitSet bitSet : bitSetList) {
-			if (!invalidBitSetList.contains(bitSet)) {
-				combinedBitSet.or(bitSet);
-			}
-		}
-
-		return combinedBitSet;
-	}*/
 
 	public static BitSet combineBitSets(List<BitSet> bitSetList, Set<BitSet> invalidBitSetList) {
 		BitSet combinedBitSet = new BitSet();
@@ -190,7 +147,14 @@ public class AsapApplication implements CommandLineRunner {
 	private static int traverseNextGroups(Map<String, Map<String, BitSet>> groups, String[] groupOrder, int currentGroupIndex, String previousKey, BitSet previousBitSet, Set<BitSet> invalidBitSets, TreeMap<String, Integer> valueToIndex, List<String> combination) {
 		// Si nous avons atteint la fin de la chaîne de groupes, affichez la combinaison et retournez 1 pour indiquer une combinaison valide
 		if (currentGroupIndex >= groupOrder.length) {
-			System.out.println(String.join(" -> ", combination));
+			//if ( combination.stream().filter( c -> c.contains("B0C_P2") ).count() == 1) {
+				//String display = String.join(" -> ", combination);
+				//System.out.println(display);
+			//}
+
+			String display = String.join(" -> ", combination);
+			System.out.println(display);
+
 			return 1;
 		}
 
@@ -201,6 +165,7 @@ public class AsapApplication implements CommandLineRunner {
 		for (Map.Entry<String, BitSet> entry : currentGroup.entrySet()) {
 			String key = entry.getKey();
 			BitSet currentBitSet = entry.getValue();
+
 			if (!isValid(currentBitSet, invalidBitSets)) {
 				continue;
 			}
@@ -220,7 +185,18 @@ public class AsapApplication implements CommandLineRunner {
 	}
 
 
-	// TODO logic here
+	private static boolean isValid(BitSet bitSet, Set<BitSet> invalidBitSets) {
+		for (BitSet invalidBitSet : invalidBitSets) {
+			if (bitSet.equals(invalidBitSet)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+
+
+	// TODO to remov logic here
 	// Here very basic exemple for 2 groups ( 2 characteristics )
 	public static int traverseGroups(Map<String, Map<String, BitSet>> groups, String signature, Set<BitSet> invalidBitSets, TreeMap<String, Integer> valueToIndex) {
 		String[] groupOrder = signature.split(" ");
@@ -263,14 +239,6 @@ public class AsapApplication implements CommandLineRunner {
 		return combinationCount;
 	}
 
-	private static boolean isValid(BitSet bitSet, Set<BitSet> invalidBitSets) {
-		for (BitSet invalidBitSet : invalidBitSets) {
-			if (bitSet.equals(invalidBitSet)) {
-				return false;
-			}
-		}
-		return true;
-	}
 
 
 
@@ -489,18 +457,19 @@ public class AsapApplication implements CommandLineRunner {
 
 		*/
 
+		String signature = "B0F B0G"; //"B0E B0H B0J";
 
-		String signature = "B0H DAB DLX DYR REG"; //"B0F B0G";
-
-		String tables = "P22"; // "m"
-		String folder = "P22"; // "m"
+		String tables = "m"; // "m"
+		String folder = "m"; // "m"
 
 		ObjectArrayList<String> filePrdList = new ObjectArrayList<>();
-		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") || tables.equalsIgnoreCase("tmp") || tables.equalsIgnoreCase("m") ) {
+		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") || tables.equalsIgnoreCase("tmp") || tables.equalsIgnoreCase("m") || tables.equalsIgnoreCase("spe")  || tables.equalsIgnoreCase("m2")) {
 			if ( tables.equalsIgnoreCase("ZZK9") )
 				filePrdList.addAll(Arrays.stream(ZZK9Table.TABLES.split("\n")).toList());
 			else if ( tables.equalsIgnoreCase("P22") ) {
 				filePrdList.addAll(Arrays.stream(P22Table.TABLES.split("\n")).toList());
+			} else if ( tables.equalsIgnoreCase("spe") )  {
+				filePrdList.addAll(Arrays.stream(TestTable.TEST_TABLES_SPE.split("\n")).toList());
 			} else {
 				filePrdList.addAll(Arrays.stream(TestTable.TEST_TABLES.split("\n")).toList());
 			}
@@ -567,8 +536,8 @@ public class AsapApplication implements CommandLineRunner {
 				Table newTableToVerse = aggregationRawTables.get(tableName);
 
 				newTableToVerse.getValue().forEach((value, row) -> {
-					System.out.println("----> incoming value : " + value + " - bitset " + row.getBitsetList());
-
+					//System.out.println("----> incoming value : " + value + " - bitset " + row.getBitsetList());
+					System.out.println("----> incoming value : \" + value ");
 					for ( String parsedTable: rawTableParsed ) {
 						System.out.println("-----> Verify if value existing in " + parsedTable);
 
@@ -580,23 +549,6 @@ public class AsapApplication implements CommandLineRunner {
 							updateMemoizationValues(memoizationPossiblesValues, value, row.getBitsetList());
 						} else {
 
-							//Map<String, String[]> possibleValuesMap = null;
-							//if ( tables.equalsIgnoreCase("ZZK9") ) {
-							//	possibleValuesMap = convertToMap(ZZK9Table.EXPECTED_POSSIBLES_VALUES);
-							//}
-
-							//if ( tables.equalsIgnoreCase("P22") ) {
-							//	possibleValuesMap = convertToMap(P22Table.EXPECTED_POSSIBLES_VALUES);
-							//}
-
-
-							// TODO ...
-							// WE ARE NOT SUPPOSED TO HAVE THIS IF and this small piece of shit about possiblesValues !!!!
-							// but algo defined during the meeting CLEARLY not working ( or not enough idk ! )
-							//if (possibleValuesMap != null && possibleValuesMap.get(getFirstSegment(value, '_')) != null && !Arrays.asList(possibleValuesMap.get(getFirstSegment(value, '_'))).contains(getSecondSegment(value, '_'))) {
-							//	row.setIsValid(Boolean.FALSE);
-							//	invalidValues.put(value, row);
-							// } else {
 								// Not found, check if family exist from the value
 								boolean characteristicExists = Boolean.FALSE;
 								String characteristic = getFirstSegment(value, '_');
@@ -618,7 +570,7 @@ public class AsapApplication implements CommandLineRunner {
 									row.setIsValid(Boolean.FALSE);
 									invalidValues.put(value, row);
 								}
-							//}
+
 
 
 						}
@@ -697,8 +649,11 @@ public class AsapApplication implements CommandLineRunner {
 			}
 		});
 
+		long start = System.currentTimeMillis();
 		int combinationCount = traverseGroupsV2(groups, signature, invalidBitSets, valueToIndex);
-		System.out.println("Nombre de combinaisons valides: " + combinationCount);
+		long end = System.currentTimeMillis();
+		System.out.println("Nombre de combinaisons valides: " + combinationCount + " in " + (end - start) + " ms");
+
 
 
 
