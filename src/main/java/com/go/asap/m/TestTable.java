@@ -10,4 +10,8 @@ public class TestTable {
             "table2\n" +
             "table3\n" +
             "table4";
+
+    public final static String TEST_TABLES_ENUMERATOR = "table1\n" +
+            "table2\n" +
+            "table3";
 }

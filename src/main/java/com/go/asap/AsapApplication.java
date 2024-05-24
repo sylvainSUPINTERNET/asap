@@ -7,6 +7,9 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectRBTreeMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import org.jgrapht.Graph;
+import org.jgrapht.graph.DefaultDirectedGraph;
+import org.jgrapht.graph.DefaultEdge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -101,16 +104,6 @@ public class AsapApplication implements CommandLineRunner {
 		return invalidBitSets;
 	}
 
-
-	private static BitSet createBitSet(int... indices) {
-		BitSet bitSet = new BitSet();
-		for (int index : indices) {
-			bitSet.set(index);
-		}
-		return bitSet;
-	}
-
-
 	public static BitSet combineBitSets(List<BitSet> bitSetList, Set<BitSet> invalidBitSetList) {
 		BitSet combinedBitSet = new BitSet();
 
@@ -122,78 +115,126 @@ public class AsapApplication implements CommandLineRunner {
 	}
 
 
-	public static int traverseGroupsV2(Map<String, Map<String, BitSet>> groups, String signature, Set<BitSet> invalidBitSets, TreeMap<String, Integer> valueToIndex) {
-		String[] groupOrder = signature.split(" ");
-		int combinationCount = 0;
+    private static BitSet createBitSet(int... indices) {
+        BitSet bitSet = new BitSet();
+        for (int index : indices) {
+            bitSet.set(index);
+        }
+        return bitSet;
+    }
 
-		// Commencez par le premier groupe
-		Map<String, BitSet> firstGroup = groups.get(groupOrder[0]);
-		for (Map.Entry<String, BitSet> entry1 : firstGroup.entrySet()) {
-			String key1 = entry1.getKey();
-			BitSet bitSet1 = entry1.getValue();
-			if (!isValid(bitSet1, invalidBitSets)) {
-				continue;
+    public static int traverseGroupsV2(Map<String, Map<String, BitSet>> groups, String signature, Set<BitSet> invalidBitSets, TreeMap<String, Integer> valueToIndex, TreeMap<Integer, String> indexToValue) {
+        String[] groupOrder = signature.split(" ");
+        int combinationCount = 0;
+
+
+
+        // Commencez par le premier groupe
+        Map<String, BitSet> firstGroup = groups.get(groupOrder[0]);
+        for (Map.Entry<String, BitSet> entry1 : firstGroup.entrySet()) {
+            String key1 = entry1.getKey();
+            BitSet bitSet1 = entry1.getValue();
+            if (!isValid(bitSet1, invalidBitSets)) {
+                continue;
+            }
+            // Liste pour accumuler les clés de la combinaison
+            List<String> combination = new ArrayList<>();
+            combination.add(key1);
+            // Appelez la fonction récursive pour traiter les groupes suivants
+            combinationCount += traverseNextGroups(groups, groupOrder, 1, key1, bitSet1, invalidBitSets, valueToIndex, combination, indexToValue, new BitSet());
+        }
+
+        return combinationCount;
+    }
+
+
+    private static int traverseNextGroups(Map<String, Map<String, BitSet>> groups, String[] groupOrder, int currentGroupIndex, String previousKey, BitSet previousBitSet, Set<BitSet> invalidBitSets, TreeMap<String, Integer> valueToIndex, List<String> combination, TreeMap<Integer, String> indexToValue, BitSet realFilter) {
+        // Si nous avons atteint la fin de la chaîne de groupes, affichez la combinaison et retournez 1 pour indiquer une combinaison valide
+        if (currentGroupIndex >= groupOrder.length) {
+            String display = String.join(" ", combination);
+            display = display.replace("_", "");
+            System.out.println(display);
+
+            return 1;
+        }
+
+        Map<String, BitSet> currentGroup = groups.get(groupOrder[currentGroupIndex]);
+        int combinationCount = 0;
+
+        int previousIndex = valueToIndex.get(previousKey);
+
+        for (Map.Entry<String, BitSet> entry : currentGroup.entrySet()) {
+            String key = entry.getKey();
+            BitSet currentBitSet = entry.getValue();
+
+            if (!isValid(currentBitSet, invalidBitSets)) {
+                continue;
+            }
+
+			System.out.println();
+			System.out.println("> compare " + previousKey + " idx : " + valueToIndex.get(previousKey) + " : " + previousBitSet);
+			System.out.println(">> with " + key + " idx : " + valueToIndex.get(key) + " : "  + currentBitSet);
+			System.out.println(">>> real filter : " + realFilter);
+			// Filtrer le BitSet actuel en utilisant le BitSet précédent
+
+			// update filter bitset ONLY if we do not loop over the values for a same carac... in this case keep the previous filter for each enumerated values !
+			// filter change only when we go to the next carac
+			BitSet filteredBitSet = (currentGroupIndex == groupOrder.length - 1) ? previousBitSet : filterBitSet(currentBitSet, previousBitSet);
+
+
+			//BitSet filteredBitSet = filterBitSet(currentBitSet, previousBitSet);
+			System.out.println(">>> Filter : " + filteredBitSet);
+
+
+
+			// Enregistrer les indices non communs comme invalides pour les futures comparaisons
+			/*
+			Set<Integer> newInvalidIndices = new HashSet<>();
+			for (int i = currentBitSet.nextSetBit(0); i >= 0; i = currentBitSet.nextSetBit(i + 1)) {
+				if (!filteredBitSet.get(i)) {
+					newInvalidIndices.add(i);
+				}
 			}
-			// Liste pour accumuler les clés de la combinaison
-			List<String> combination = new ArrayList<>();
-			combination.add(key1);
-			// Appelez la fonction récursive pour traiter les groupes suivants
-			combinationCount += traverseNextGroups(groups, groupOrder, 1, key1, bitSet1, invalidBitSets, valueToIndex, combination);
-		}
+			System.out.println("===> invalid indice now : " + newInvalidIndices);
+			newInvalidIndices.stream().sorted().forEach( i -> {
+				System.out.println(indexToValue.get(i));
+			});*/
 
-		return combinationCount;
-	}
-
-	private static int traverseNextGroups(Map<String, Map<String, BitSet>> groups, String[] groupOrder, int currentGroupIndex, String previousKey, BitSet previousBitSet, Set<BitSet> invalidBitSets, TreeMap<String, Integer> valueToIndex, List<String> combination) {
-		// Si nous avons atteint la fin de la chaîne de groupes, affichez la combinaison et retournez 1 pour indiquer une combinaison valide
-		if (currentGroupIndex >= groupOrder.length) {
-			//if ( combination.stream().filter( c -> c.contains("B0C_P2") ).count() == 1) {
-				//String display = String.join(" -> ", combination);
-				//System.out.println(display);
-			//}
-
-			//String display = String.join(" -> ", combination);
-			String display = String.join(" ", combination);
-			display = display.replace("_", "");
-			System.out.println(display);
-
-			return 1;
-		}
-
-		Map<String, BitSet> currentGroup = groups.get(groupOrder[currentGroupIndex]);
-		int combinationCount = 0;
-		int previousIndex = valueToIndex.get(previousKey);
-
-		for (Map.Entry<String, BitSet> entry : currentGroup.entrySet()) {
-			String key = entry.getKey();
-			BitSet currentBitSet = entry.getValue();
-
-			if (!isValid(currentBitSet, invalidBitSets)) {
-				continue;
-			}
 
 			// Vérifiez si l'index précédent est présent dans le bitset actuel
-			if (currentBitSet.get(previousIndex)) {
+            //if (currentBitSet.get(previousIndex)) {
+			if (filteredBitSet.get(previousIndex)) {
 				// Ajoutez la clé actuelle à la combinaison
-				combination.add(key);
+                combination.add(key);
+
+				System.out.println("CONTINUE PATH WITH " + combination);
+				System.out.println();
+
 				// Appelez récursivement la fonction pour le prochain groupe
-				combinationCount += traverseNextGroups(groups, groupOrder, currentGroupIndex + 1, key, currentBitSet, invalidBitSets, valueToIndex, combination);
-				// Retirez la clé actuelle après le retour de la récursion pour essayer la prochaine clé
-				combination.remove(combination.size() - 1);
+                combinationCount += traverseNextGroups(groups, groupOrder, currentGroupIndex + 1, key, currentBitSet, invalidBitSets, valueToIndex, combination, indexToValue, filteredBitSet);
+                // Retirez la clé actuelle après le retour de la récursion pour essayer la prochaine clé
+                combination.remove(combination.size() - 1);
+            } else {
+				System.out.println("No path for " + combination + " for " + key + " continue ...");
 			}
-		}
+        }
 
-		return combinationCount;
-	}
+        return combinationCount;
+    }
 
+    private static boolean isValid(BitSet bitSet, Set<BitSet> invalidBitSets) {
+        for (BitSet invalidBitSet : invalidBitSets) {
+            if (bitSet.equals(invalidBitSet)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
-	private static boolean isValid(BitSet bitSet, Set<BitSet> invalidBitSets) {
-		for (BitSet invalidBitSet : invalidBitSets) {
-			if (bitSet.equals(invalidBitSet)) {
-				return false;
-			}
-		}
-		return true;
+	private static BitSet filterBitSet(BitSet currentBitSet, BitSet previousBitSet) {
+		BitSet filteredBitSet = (BitSet) currentBitSet.clone();
+		filteredBitSet.and(previousBitSet);
+		return filteredBitSet;
 	}
 
 
@@ -327,7 +368,374 @@ public class AsapApplication implements CommandLineRunner {
 
 
 
-	public static void main(String[] args) {
+	public static List<List<String>> excelFilter(List<String> signature, TreeMap<String, PseudoTable> pseudoTables,
+												 TreeMap<String, Integer> valueToIndex, TreeMap<Integer, String> indexToValue,
+												 HashMap<String, List<String>> groups) {
+
+		List<List<String>> validCombinations = new ArrayList<>();
+		Set<Integer> initialIndices = new HashSet<>();
+		for (int i = 0; i < pseudoTables.size(); i++) {
+			initialIndices.add(i);
+		}
+
+		recursiveFilter(signature, pseudoTables, groups, validCombinations, new ArrayList<>(), initialIndices, 0);
+
+		return validCombinations;
+	}
+
+	private static void recursiveFilter(List<String> signature, TreeMap<String, PseudoTable> pseudoTables,
+										HashMap<String, List<String>> groups, List<List<String>> validCombinations,
+										List<String> currentCombination, Set<Integer> currentIndices, int level) {
+
+		if (level == signature.size()) {
+			validCombinations.add(new ArrayList<>(currentCombination));
+			return;
+		}
+
+		String charac = signature.get(level);
+		for (String value : groups.get(charac)) {
+			Set<Integer> newIndices = updateValidIndices(currentIndices, value, pseudoTables);
+			if (!newIndices.isEmpty()) {
+				currentCombination.add(value);
+				recursiveFilter(signature, pseudoTables, groups, validCombinations, currentCombination, newIndices, level + 1);
+				currentCombination.remove(currentCombination.size() - 1);
+			}
+		}
+	}
+
+	private static Set<Integer> updateValidIndices(Set<Integer> validIndices, String characValue, TreeMap<String, PseudoTable> pseudoTables) {
+		List<BitSet> bitsets = getBitsets(characValue, pseudoTables);
+		Set<Integer> newValidIndices = new HashSet<>();
+
+		for (BitSet bitset : bitsets) {
+			for (int index : validIndices) {
+				if (bitset.get(index)) {
+					newValidIndices.add(index);
+				}
+			}
+		}
+
+		return newValidIndices;
+	}
+
+	private static List<BitSet> getBitsets(String characValue, TreeMap<String, PseudoTable> pseudoTables) {
+		List<BitSet> bitsets = new ArrayList<>();
+		for (PseudoTable table : pseudoTables.values()) {
+			if (table.getValue().containsKey(characValue)) {
+				bitsets.addAll(table.getValue().get(characValue).getBitsetList());
+			}
+		}
+		return bitsets;
+	}
+
+
+
+	/*
+
+		{AA=[01, 03], BB=[01, 02], CC=[21, 22]}
+
+
+		AA_01
+
+		j'active dans les table AA_01
+
+		ensuite je vais suivant
+		BB_01
+		jaactive dans les table BB_01 mais il faut vérifier que dans les bitset list j'ai bien AA_01 index
+
+		ensuite j'arrive à CC_21
+		j'active et je regarde dans le bitset si j'ai bien : AA_01 et BB_01
+
+		je vois j'ai une autre valeur à CC, CC_22
+		donc je refais la mmême chose, j'active que CC_22 et je regarde si j'ai bien AA_01 et BB_01 quand j'active CC_22
+
+		j'ai terminé, je repars en arrière, autre valeur à BB,
+
+		donc j'active BB_02
+		et je regarde si à BB_02 activé j'ai bien des AA_01 index
+
+		si c'est le cas je repasse sur CC
+
+		je dis sir j'ai CC_21 activé je regarde dans le bitset si j'ai bien AA_01 et BB_02
+		idem pour CC_22, j'active je check les bitset
+		termin" CC je reviens en arrière, pas d'autre valeur en BB, je repasse sur AA nouvelle valeur AA_03
+		donc je repars AA_03 activé
+		je passe à BB_01 esque j'ai AA_03 avec des BB_01 index dans les bitset ? oui j'avance en CC etc
+	 */
+
+	public static void traverse(Map<String, List<String>> map, TreeMap<String, Integer> valueToIndex, TreeMap<Integer, String> indexToValue, TreeMap<String, PseudoTable> pseudoTables, String prevKeyValue) {
+		List<String> keys = new ArrayList<>(map.keySet());
+		if (keys.isEmpty()) return;
+
+		BitSet allowedBitsetIndex = new BitSet();
+		Deque<BitSet> bitsetStack = new ArrayDeque<>();
+		List<List<String>> validCombinations = new ArrayList<>();
+		List<String> currentCombination = new ArrayList<>();
+
+		traverseNextLevel(map, keys, 0, valueToIndex, indexToValue, pseudoTables, allowedBitsetIndex, bitsetStack, validCombinations, currentCombination);
+
+		// Print all valid combinations
+		System.out.println("Valid combinations:");
+		for (List<String> combination : validCombinations) {
+			System.out.println(combination);
+		}
+	}
+
+	private static void traverseNextLevel(Map<String, List<String>> map, List<String> keys, int index, TreeMap<String, Integer> valueToIndex, TreeMap<Integer, String> indexToValue, TreeMap<String, PseudoTable> pseudoTables, BitSet allowedBitsetIndex, Deque<BitSet> bitsetStack, List<List<String>> validCombinations, List<String> currentCombination) {
+		if (index >= keys.size()) {
+			validCombinations.add(new ArrayList<>(currentCombination));
+			return;
+		}
+
+		String currentKey = keys.get(index);
+		List<String> currentList = map.get(currentKey);
+		if (currentList == null) return;
+
+		for (String currentValue : currentList) {
+			BitSet currentBitSet = (BitSet) allowedBitsetIndex.clone();
+			Integer currentIndex = valueToIndex.get(currentKey + "_" + currentValue);
+			boolean isValid = false;
+
+			if (allowedBitsetIndex.isEmpty()) {
+				currentBitSet.set(currentIndex);
+				isValid = true;
+			} else {
+				for (Map.Entry<String, PseudoTable> pseudoTableEntry : pseudoTables.entrySet()) {
+					TreeMap<String, Row> rows = pseudoTableEntry.getValue().getValue();
+					Row row = rows.get(indexToValue.get(currentIndex));
+					if (row != null) {
+						for (BitSet bitset : row.getBitsetList()) {
+							BitSet tempBitSet = (BitSet) bitset.clone();
+							tempBitSet.and(allowedBitsetIndex);
+							if (!tempBitSet.isEmpty()) {
+								currentBitSet.set(currentIndex);
+								isValid = true;
+								break;
+							}
+						}
+					}
+					if (isValid) break;
+				}
+			}
+
+			if (isValid) {
+				bitsetStack.push((BitSet) allowedBitsetIndex.clone());
+				allowedBitsetIndex = currentBitSet;
+
+				currentCombination.add(currentKey + "_" + currentValue);
+				traverseNextLevel(map, keys, index + 1, valueToIndex, indexToValue, pseudoTables, allowedBitsetIndex, bitsetStack, validCombinations, currentCombination);
+				currentCombination.remove(currentCombination.size() - 1);
+
+				allowedBitsetIndex = bitsetStack.pop();
+			}
+		}
+	}
+
+    public static int traverseGroupV3(String signature, TreeMap<String, PseudoTable> pseudoTables, TreeMap<String, Integer> valueToIndex, TreeMap<Integer, String> indexToValue, TreeMap<String, List<String>> possiblesValues) {
+
+        System.out.println("===========");
+        System.out.println("===========");
+        System.out.println("===========");
+
+        String[] signatureSplited = signature.split(" ");
+        TreeMap<String, List<String>> possiblesValuesFilteredBySignature = new TreeMap<>();
+        for (String charInSignature : signatureSplited) {
+            possiblesValuesFilteredBySignature.put(charInSignature, possiblesValues.get(charInSignature));
+        }
+        System.out.println(possiblesValuesFilteredBySignature);
+		System.out.println(indexToValue);
+
+		traverse(possiblesValuesFilteredBySignature, valueToIndex, indexToValue, pseudoTables, "");
+
+
+		return 0;
+    }
+
+
+	public static void createGraph(Map<String, PseudoTable> tables, List<String> characteristics, Graph<String, DefaultEdge> graph) {
+		// Créer les sommets pour chaque valeur possible dans toutes les tables
+		for (PseudoTable table : tables.values()) {
+			for (String rowKey : table.getValue().keySet()) {
+				graph.addVertex(rowKey);
+			}
+		}
+
+		// Ajouter les arêtes avec filtrage successif
+		for (int i = 0; i < characteristics.size() - 1; i++) {
+			String currentKeyPrefix = characteristics.get(i);
+			String nextKeyPrefix = characteristics.get(i + 1);
+
+			for (PseudoTable table : tables.values()) {
+				for (String currentRowKey : table.getValue().keySet()) {
+					if (currentRowKey.startsWith(currentKeyPrefix)) {
+						Row currentRow = table.getValue().get(currentRowKey);
+
+						// Appliquer le filtrage successif
+						List<BitSet> filteredBitSets = new ArrayList<>(currentRow.getBitsetList());
+						for (String nextRowKey : table.getValue().keySet()) {
+							if (nextRowKey.startsWith(nextKeyPrefix)) {
+								Row nextRow = table.getValue().get(nextRowKey);
+								if (hasIntersection(filteredBitSets, nextRow.getBitsetList())) {
+									filteredBitSets = filterBitSets(filteredBitSets, nextRow.getBitsetList());
+									graph.addEdge(currentRowKey, nextRowKey);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	public static boolean hasIntersection(List<BitSet> list1, List<BitSet> list2) {
+		for (BitSet bitset1 : list1) {
+			for (BitSet bitset2 : list2) {
+				BitSet intersection = (BitSet) bitset1.clone();
+				intersection.and(bitset2);
+				if (!intersection.isEmpty()) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	public static void traverseGraph(Graph<String, DefaultEdge> graph, String startVertex, List<String> characteristics, Map<String, PseudoTable> tables, TreeMap<Integer, String> indexToValue, TreeMap<String, Integer> valueToIndex) {
+		System.out.println("Traversing from: " + startVertex);
+		traverseGraphHelper(graph, startVertex, new ArrayList<>(), new HashSet<>(), characteristics, tables, indexToValue, valueToIndex, null);
+	}
+
+
+	private static void traverseGraphHelper(Graph<String, DefaultEdge> graph, String currentVertex, List<String> path, Set<String> visited, List<String> characteristics, Map<String, PseudoTable> tables,  TreeMap<Integer, String> indexToValue, TreeMap<String, Integer> valueToIndex, BitSet filter) {
+		path.add(currentVertex);
+		visited.add(currentVertex);
+
+
+		if ( filter == null ) {
+			filter = new BitSet();
+		} else {
+			// make sure we dont take MAT
+			filter.clear(valueToIndex.get("MAT_0S"));
+		}
+
+
+
+		int currentIndex = characteristics.indexOf(currentVertex.split("_")[0]);
+		if (currentIndex == characteristics.size() - 1 || graph.outgoingEdgesOf(currentVertex).isEmpty()) {
+			// If the current vertex is the last characteristic or has no outgoing edges, it's the end of a path
+			System.out.println(String.join(" ", path.stream().map(p -> p.replace("_", "")).collect(Collectors.toList())));
+		} else {
+			String nextKeyPrefix = characteristics.get(currentIndex + 1);
+			Row currentRow = tables.values().stream()
+					.flatMap(table -> table.getValue().entrySet().stream())
+					.filter(entry -> entry.getKey().equals(currentVertex))
+					.map(Map.Entry::getValue)
+					.findFirst()
+					.orElse(null);
+
+			if (currentRow != null) {
+
+
+				// Continue traversing the graph
+				for (DefaultEdge edge : graph.outgoingEdgesOf(currentVertex)) {
+					String nextVertex = graph.getEdgeTarget(edge);
+
+					int indexToFind = valueToIndex.get(nextVertex);
+					if ( filter.isEmpty() ) {
+						List<BitSet> x = currentRow.getBitsetList().stream().filter(b->b.get(indexToFind)).collect(Collectors.toList());
+						if ( !x.isEmpty() ) {
+							for ( BitSet b : x ) {
+								filter.or(b);
+							}
+						}
+					}
+
+
+					if (nextVertex.startsWith(nextKeyPrefix) && !visited.contains(nextVertex)) {
+						System.out.println("CURRENT : " + currentVertex);
+						System.out.println( combineBitSets(currentRow.getBitsetList(), new HashSet<>()));
+						System.out.println(currentRow.getBitsetList());
+						System.out.println();
+
+						Row nextRow = tables.values().stream()
+								.flatMap(table -> table.getValue().entrySet().stream())
+								.filter(entry -> entry.getKey().equals(nextVertex))
+								.map(Map.Entry::getValue)
+								.findFirst()
+								.orElse(null);
+
+						System.out.println("NEXT : " + nextVertex);
+						System.out.println( combineBitSets(nextRow.getBitsetList(), new HashSet<>()));
+						System.out.println(nextRow.getBitsetList());
+						System.out.println();
+
+						if ( nextRow != null ) {
+
+							int nextRowIndexToFind = valueToIndex.get(nextVertex);
+							List<BitSet> y = nextRow.getBitsetList().stream().filter(b->b.get(nextRowIndexToFind)).collect(Collectors.toList());
+							if ( !y.isEmpty() ) {
+								for ( BitSet b : y ) {
+									var c = (BitSet) b.clone();
+									var f = (BitSet) filter.clone();
+									c.and(f);
+									if ( !c.isEmpty() ) {
+										filter.or(b);
+										System.out.println("Intersection on : " + c);
+										System.out.println("Filter becomes : " + filter);
+										traverseGraphHelper(graph, nextVertex, new ArrayList<>(path), new HashSet<>(visited), characteristics, tables, indexToValue, valueToIndex, filter);
+									}
+								}
+							}
+
+
+							/*
+							for ( BitSet b : nextRow.getBitsetList() ) {
+								BitSet cb = (BitSet) b.clone();
+								for ( BitSet fb : filteredBitSets ) {
+									BitSet fbc = (BitSet) fb.clone();
+									fbc.and(cb);
+									if ( !fbc.isEmpty() ) {
+
+										traverseGraphHelper(graph, nextVertex, new ArrayList<>(path), new HashSet<>(visited), characteristics, tables, indexToValue, valueToIndex, filter);
+									}
+								}
+							} */
+						}
+
+						/*
+						if (nextRow != null && hasIntersection(filteredBitSets, nextRow.getBitsetList())) {
+							List<BitSet> newFilteredBitSets = filterBitSets(filteredBitSets, nextRow.getBitsetList());
+							if (!newFilteredBitSets.isEmpty()) {
+								traverseGraphHelper(graph, nextVertex, new ArrayList<>(path), new HashSet<>(visited), characteristics, tables, indexToValue, valueToIndex);
+							}
+						}
+
+						 */
+
+
+					}
+				}
+			}
+		}
+	}
+
+	public static List<BitSet> filterBitSets(List<BitSet> filteredBitSets, List<BitSet> list2) {
+		Set<BitSet> newFilteredBitSets = new HashSet<>();
+		for (BitSet bitset1 : filteredBitSets) {
+			for (BitSet bitset2 : list2) {
+				BitSet intersection = (BitSet) bitset1.clone();
+				intersection.and(bitset2);
+				if (!intersection.isEmpty()) {
+					newFilteredBitSets.add(intersection);
+				}
+			}
+		}
+		return new ArrayList<>(newFilteredBitSets);
+	}
+
+
+
+    public static void main(String[] args) {
 		SpringApplication.run(AsapApplication.class, args);
 	}
 
@@ -460,19 +868,22 @@ public class AsapApplication implements CommandLineRunner {
 
 		*/
 
-		String signature = "B0C B0F B0G B0H DAQ"; //"B0E B0F DFH REG"; //"B0E B0H B0J";
+		// TODO ici il faut voir le log pour mettre dans le bon ordre ( enumeration ) mais putin faut retrouver ça dans le code c++ !
+		String signature = "B0C B0F B0G B0H DAQ"; //"B0C B0F B0G B0H DAQ"; //"AA BB CC"; //"AA BB CC"; //"B0C B0F B0G B0H DAQ"; //"B0E B0F DFH REG"; //"B0E B0H B0J";
 
-		String tables = "P22"; // "m"
-		String folder = "P22"; // "m"
+		String tables = "P22";//"enumerator_test"; // "m"
+		String folder = "P22"; //"enumerator_test"; // "m"
 
 		ObjectArrayList<String> filePrdList = new ObjectArrayList<>();
-		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") || tables.equalsIgnoreCase("tmp") || tables.equalsIgnoreCase("m") || tables.equalsIgnoreCase("spe")  || tables.equalsIgnoreCase("m2")) {
+		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") || tables.equalsIgnoreCase("tmp") || tables.equalsIgnoreCase("m") || tables.equalsIgnoreCase("spe")  || tables.equalsIgnoreCase("m2") || tables.equalsIgnoreCase("enumerator_test")) {
 			if ( tables.equalsIgnoreCase("ZZK9") )
 				filePrdList.addAll(Arrays.stream(ZZK9Table.TABLES.split("\n")).toList());
 			else if ( tables.equalsIgnoreCase("P22") ) {
 				filePrdList.addAll(Arrays.stream(P22Table.TABLES.split("\n")).toList());
 			} else if ( tables.equalsIgnoreCase("spe") )  {
 				filePrdList.addAll(Arrays.stream(TestTable.TEST_TABLES_SPE.split("\n")).toList());
+			} else if (tables.equalsIgnoreCase("enumerator_test")) {
+				filePrdList.addAll(Arrays.stream(TestTable.TEST_TABLES_ENUMERATOR.split("\n")).toList());
 			} else {
 				filePrdList.addAll(Arrays.stream(TestTable.TEST_TABLES.split("\n")).toList());
 			}
@@ -682,6 +1093,8 @@ public class AsapApplication implements CommandLineRunner {
 		invalidBitSets.add(ib);
 
 
+		// BB_01 avec l'index de AA_03, pas possible ça ..
+		// c'est pas bon
 		// Build group for traverse
 		// We regroup for each char of signature, value found in table and bitset ( filter keep only valid bitset )
 		Map<String, Map<String, BitSet>> groups = new LinkedHashMap<>();
@@ -699,9 +1112,66 @@ public class AsapApplication implements CommandLineRunner {
 		});
 
 		long start = System.currentTimeMillis();
-		int combinationCount = traverseGroupsV2(groups, signature, invalidBitSets, valueToIndex);
+
+
+		// TODO : en fait la structure de base n'est pas bonne
+		// TODO : en fait le isValid ne réprésente pas la "Row" comme décris dans la class ...
+
+		// TODO : il faut en fait considéré chaque bitset de la liste comme une "row" et du coup chaque bitset peut être valide ou invalide
+		// TODO : le isValid lui est global, ce qui fait perdre des infos à la génération des combi et du coup ne marche pas comme un filtre excel
+
+
+		// TODO donc viré cette class Row et dans aggregationPseudoTables, isValid ne doit être là aussi
+		// TODO si on veut faire ça propre on peut faire :
+
+		// TODO : pareil invalidBitsets je vois pas trop l'interêt dans la génération en fait ici
+		// TODO : idem groups utile ?
+
+
+
+
+		/*
+		Graph<String, DefaultEdge> graph = new DefaultDirectedGraph<>(DefaultEdge.class);
+		createGraph(aggregationPseudoTables, Arrays.asList(signatureSplited), graph);
+		traverseGraph(graph, "B0C_P2", Arrays.asList(signatureSplited), aggregationPseudoTables, indexToValue, valueToIndex);
+		System.out.println(graph);
+		 */
+
+
+
+		int combinationCount = traverseGroupsV2(groups, signature, invalidBitSets, valueToIndex, indexToValue);
 		long end = System.currentTimeMillis();
 		System.out.println("Nombre de combinaisons valides: " + combinationCount + " in " + (end - start) + " ms");
+
+
+		// Prepare groups
+		/*
+		HashMap<String, List<String>> grp = new HashMap<>();
+		for ( String charSignature: signatureSplited ) {
+
+			if ( !grp.containsKey(charSignature) ) {
+				grp.put(charSignature, new ArrayList<>());
+			}
+		}
+
+		memoizationPossiblesValuesFiltered.keySet().forEach( key -> {
+			String[] splitedKey = key.split("_");
+			grp.computeIfPresent(splitedKey[0], (k, v) -> {
+				v.add(key);
+				return v;
+			});
+		});
+
+		List<List<String>> validCombinations = excelFilter(Arrays.stream(signature.split(" ")).toList(), aggregationPseudoTables, valueToIndex, indexToValue, grp);
+
+		for (List<String> combination : validCombinations) {
+			System.out.println(combination);
+		}
+
+		long end = System.currentTimeMillis();
+		System.out.println("Nombre de combinations valides : " + validCombinations.size() + " en " + (end - start) + " ms");
+
+		 */
 
 
 
