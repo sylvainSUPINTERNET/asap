@@ -1,5 +1,7 @@
 package com.go.asap;
 
+import com.go.asap.go.Enumerator;
+import com.go.asap.go.TableRow;
 import com.go.asap.m.*;
 import com.go.asap.m.Loader;
 import com.go.asap.m.Row;
@@ -772,6 +774,8 @@ public class AsapApplication implements CommandLineRunner {
 		return graph;
 	}
 
+	// TODO => beware this graph is not properly reflected the fully relation !
+	// but you can use it at least to get "connectivity" between nodes ( order enumeration )
 	public static Graph<String, DefaultEdge> buildGraph(TreeMap<String, BitSet> characValueToLineBitset, String signature) {
 		Graph<String, DefaultEdge> graph = new SimpleGraph<>(DefaultEdge.class);
 		String[] signatureOrder = signature.split(" ");
@@ -785,17 +789,13 @@ public class AsapApplication implements CommandLineRunner {
 		for (String charValue1 : characValueToLineBitset.keySet()) {
 			for (String charValue2 : characValueToLineBitset.keySet()) {
 				if (!charValue1.equals(charValue2)) {
-					System.out.println("char value 1 " + charValue1);
 					BitSet bitSet1 = characValueToLineBitset.get(charValue1);
 					BitSet bitSet2 = characValueToLineBitset.get(charValue2);
-					System.out.println("char value 2 " + charValue1);
 
 					BitSet intersection = (BitSet) bitSet1.clone();
 					intersection.and(bitSet2);
-					System.out.println("intersection ? " + intersection);
 
 					if (!intersection.isEmpty()) {
-						System.out.println("Add edge " + charValue1 + " -> " + charValue2);
 						graph.addEdge(charValue1, charValue2);
 					}
 
@@ -1105,6 +1105,24 @@ public class AsapApplication implements CommandLineRunner {
 		return false;
 	}
 
+	public static List<String> getOrder(List<String> signature, Graph<String, DefaultEdge> graph, TreeMap<String, Integer> valueToIndex) {
+		// Utiliser un TreeMap pour conserver l'ordre tout en triant par connectivité
+		TreeMap<Integer, List<String>> connectivityMap = new TreeMap<>(Collections.reverseOrder());
+
+		for (String carac : valueToIndex.keySet()) {
+			int degree = graph.degreeOf(carac);
+			connectivityMap.computeIfAbsent(degree, k -> new ArrayList<>()).add(carac);
+		}
+
+		LinkedList<String> orderedCaracs = new LinkedList<>();
+		for (Map.Entry<Integer, List<String>> entry : connectivityMap.entrySet()) {
+			orderedCaracs.addAll(entry.getValue());
+		}
+
+
+		return orderedCaracs;
+	}
+
     public static void main(String[] args) {
 		SpringApplication.run(AsapApplication.class, args);
 	}
@@ -1238,7 +1256,7 @@ public class AsapApplication implements CommandLineRunner {
 
 		*/
 
-		// TODO ici il faut voir le log pour mettre dans le bon ordre ( enumeration ) mais putin faut retrouver ça dans le code c++ !
+		// TODO ici il faut voir le log pour mettre dans le bon ordre  ( enumeration ) mais putin faut retrouver ça dans le code c++ !
 		//String signature = "B0B B0C B0E B0F B0G"; //"B0C B0F B0G B0H DAQ"; //"AA BB CC"; //"AA BB CC"; //"B0C B0F B0G B0H DAQ"; //"B0E B0F DFH REG"; //"B0E B0H B0J";
 		String signature = "B0C B0F B0G B0H DAQ";
 		String tables = "P22";//"enumerator_test"; // "m"
@@ -1270,10 +1288,18 @@ public class AsapApplication implements CommandLineRunner {
 		AtomicInteger globalIdxLine = new AtomicInteger(1);
 		TreeMap<String, BitSet> characValueToLineBitset = new TreeMap<>();
 
+
+		TreeMap<String, TreeMap<String, TableRow>> tablesLair = new TreeMap<>();
+
 		for (String file : filePrdList) {
 
 			// TODO
-			Loader.readTableAndBuildIndexMapV2(folder, file, characteristic_value_for_tables, valueToIndex, indexToValue, globalIdx, globalIdxLine, characValueToLineBitset);
+			//Loader.readTableAndBuildIndexMapV2(folder, file, characteristic_value_for_tables, valueToIndex, indexToValue, globalIdx, globalIdxLine, characValueToLineBitset);
+
+
+			Loader.readTableAndBuildIndexMapV3(folder, file, characteristic_value_for_tables, valueToIndex, indexToValue, globalIdx, globalIdxLine, characValueToLineBitset,tablesLair);
+
+
 			// TODO to remove ?
 			//Loader.readTableAndBuildIndexMap(folder, file, characteristic_value_for_tables, valueToIndex, indexToValue, globalIdx);
 		}
@@ -1417,178 +1443,40 @@ public class AsapApplication implements CommandLineRunner {
 
 
 
-		//findIntersections(characValueToLineBitset, "B0F", "B0E");
+		System.out.println("START");
 
-		findMultiIntersections(characValueToLineBitset, Arrays.asList(signature.split(" ")));
-
-
-		/*
-		Graph<String, DefaultEdge> graph = buildGraph(characValueToLineBitset, signature);
-		System.out.println("Graph vertices: " + graph.vertexSet());
-		System.out.println("Graph edges: " + graph.edgeSet());
+		// becarefull the graph is not fully reflected ALL relation properly, but you can use it to get the order enumeration
+		buildGraph(characValueToLineBitset, signature);
+		//LinkedHashSet<String> orderEnum = getOrder(List.of(signature.split(" ")), buildGraph(characValueToLineBitset, signature), valueToIndex).stream().map(k->k.split("_")[0]).collect(Collectors.toCollection(LinkedHashSet::new));
 
 
-
-		JGraphXAdapter<String, DefaultEdge> graphAdapter =
-				new JGraphXAdapter<String, DefaultEdge>(graph);
-		mxIGraphLayout layout = new mxCircleLayout(graphAdapter);
-		layout.execute(graphAdapter.getDefaultParent());
-
-		BufferedImage image =
-				mxCellRenderer.createBufferedImage(graphAdapter, null, 2, Color.WHITE, true, null);
-		File imgFile = new File("src/test/resources/graph.png");
-		ImageIO.write(image, "PNG", imgFile);
-
-		TreeMap<String, Integer> tmpEnum = new TreeMap<>();
-		for (String vertex : graph.vertexSet()) {
-			var charac = getFirstSegment(vertex, '_');
-			if ( tmpEnum.containsKey(charac) ) {
-				Integer t = tmpEnum.get(charac);
-				t =+ graph.degreeOf(vertex);
-				tmpEnum.put(charac, t);
-			} else {
-				tmpEnum.put(charac, graph.degreeOf(vertex));
-			}
-		}
-
-		// Create a new LinkedHashMap to maintain the order of insertion
-		Map<String, Integer> orderEnumeration = new LinkedHashMap<>();
-
-		// Add entries from the signature list first, sorted by their values descending
-		Arrays.stream(signature.split(" "))
-				.sorted(Comparator.comparing(tmpEnum::get).reversed())
-				.forEach(key -> orderEnumeration.put(key, tmpEnum.get(key)));
-
-		// Add the remaining entries sorted by their values descending
-		tmpEnum.entrySet().stream()
-				.filter(entry -> !orderEnumeration.containsKey(entry.getKey()))
-				.sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-				.forEach(entry -> orderEnumeration.put(entry.getKey(), entry.getValue()));
-
-		// Print the sorted map
-		LOG.info("Order enumeration : ");
-		orderEnumeration.forEach((key, value) -> System.out.print(key + "=" + value + "(edges)" + " "));
-
-		System.out.println();
-
-		// fin boucle sur les tables
-		LOG.info("Possibles values : ");
-		// Map temporaire pour regrouper les valeurs par préfixe
-		TreeMap<String, List<String>> groupedValues2 = new TreeMap<>();
-
-		// Parcourir chaque entrée du TreeMap
-		for (Map.Entry<String, List<BitSet>> entry : memoizationPossiblesValues.entrySet()) {
-			String key = entry.getKey();
-			String prefix = key.split("_")[0];
-			String suffix = key.split("_")[1];
-
-			// Ajouter le suffixe à la liste correspondante dans le groupedValues2
-			groupedValues2.computeIfAbsent(prefix, k -> new ArrayList<>()).add(suffix);
-		}
-
-		// Afficher les résultats formatés
-		for (Map.Entry<String, List<String>> entry : groupedValues2.entrySet()) {
-			System.out.print(entry.getKey() + ": ");
-			for (String value : entry.getValue()) {
-				System.out.print(value + " ");
-			}
-			System.out.println();
-		}
-
-
-		System.out.println("Generate combination for signature : " + signature);
-
-		/*
-		List<List<String>> allCombinations = findAllCombinations(graph, "B0F_MT");
-
-		System.out.println("All combinations:");
-		for (List<String> combination : allCombinations) {
-			System.out.println(combination);
-		}*/
-
-		//computeCombinations(graph, groupedValues2,orderEnumeration, signature );
-
-
-		/*
-		TreeMap<String, List<BitSet>> memoizationPossiblesValuesFiltered = filterTreeMapBySignature(memoizationPossiblesValues, new HashSet<>(Arrays.asList(signature.split(" "))));
-
-		LOG.info("Possibles values after filtering by signature :");
-		TreeMap<String, List<String>> x = new TreeMap<>();
-
-		// Parcourir chaque entrée du TreeMap
-		for (Map.Entry<String, List<BitSet>> entry : memoizationPossiblesValuesFiltered.entrySet()) {
-			String key = entry.getKey();
-			String prefix = key.split("_")[0];
-			String suffix = key.split("_")[1];
-
-			// Ajouter le suffixe à la liste correspondante dans le groupedValues
-			x.computeIfAbsent(prefix, k -> new ArrayList<>()).add(suffix);
-		}
-
-		// Afficher les résultats formatés
-		for (Map.Entry<String, List<String>> entry : x.entrySet()) {
-			System.out.print(entry.getKey() + ": ");
-			for (String value : entry.getValue()) {
-				System.out.print(value + " ");
-			}
-			System.out.println();
-		}
+		Enumerator enumerator = new Enumerator(List.of(signature.split(" ")), groupedValues, tablesLair);
+		enumerator.trimTables();
+		enumerator.generateCombinations();
 
 
 
-		// Build invalid bitset from index deleted
-		Set<BitSet> invalidBitSets = new HashSet<>();
-		BitSet ib = new BitSet();
-		invalidValues.forEach((key, value) -> {
-			System.out.println("Deleted value " + key);
-			ib.set(valueToIndex.get(key));
-		});
-		invalidBitSets.add(ib);
+		// TODO => représentation
+		// map : tableName_AA_BB_CC :
+		// map carac_value : { bitset indice line }
+		// ensuite on prend la signature
+		// les valeur possible
+		// par exemple AA_00 AA_01
+		// on va dans les table qui intègre AA activer les ligne et desactiver les autres
+		// quand on desactive on retiens les element supprimé ( même si pas dans la signature )
+		// => impacte dans le reste des tables
+		// ensuite on passe à BB on fait aussi toute les valeur possible :
+		// si y'a du AA faut verifier intersection, si pas d'intersection je delete la ligne
+		// si pas de AA, je prend les BB
+		// a chaque fois je retiens les ligne supprimé pour les autres filtre progressif
+		// si j'ai une table genre AA CC, bah je prend les valeur possible de AA et CC et je verifie les intersection
 
 
-		// BB_01 avec l'index de AA_03, pas possible ça ..
-		// c'est pas bon
-		// Build group for traverse
-		// We regroup for each char of signature, value found in table and bitset ( filter keep only valid bitset )
-		Map<String, Map<String, BitSet>> groups = new LinkedHashMap<>();
-		String[] signatureSplited = signature.split(" ");
-
-		Arrays.asList(signatureSplited).forEach( s -> {
-			groups.computeIfAbsent(s, k -> new LinkedHashMap<>());
-		});
-
-		memoizationPossiblesValuesFiltered.forEach( (k, bitsetList) -> {
-			String firstSegment = getFirstSegment(k, '_');
-			if ( groups.containsKey(firstSegment) ) {
-				groups.get(firstSegment).put(k, combineBitSets(bitsetList, invalidBitSets));
-			}
-		});
-
-		long start = System.currentTimeMillis();
-
-
-		// TODO : en fait la structure de base n'est pas bonne
-		// TODO : en fait le isValid ne réprésente pas la "Row" comme décris dans la class ...
-
-		// TODO : il faut en fait considéré chaque bitset de la liste comme une "row" et du coup chaque bitset peut être valide ou invalide
-		// TODO : le isValid lui est global, ce qui fait perdre des infos à la génération des combi et du coup ne marche pas comme un filtre excel
-
-
-		// TODO donc viré cette class Row et dans aggregationPseudoTables, isValid ne doit être là aussi
-		// TODO si on veut faire ça propre on peut faire :
-
-		// TODO : pareil invalidBitsets je vois pas trop l'interêt dans la génération en fait ici
-		// TODO : idem groups utile ?
-
-
-
-
-
-		int combinationCount = traverseGroupsV2(groups, signature, invalidBitSets, valueToIndex, indexToValue);
-		long end = System.currentTimeMillis();
-		System.out.println("Nombre de combinaisons valides: " + combinationCount + " in " + (end - start) + " ms");
-		*/
-
+		// Table 1:
+		// AA_01 : {
+		//          bitset,
+		//			valid
+		//        }
 
 
 
