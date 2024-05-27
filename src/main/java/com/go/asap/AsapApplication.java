@@ -3,20 +3,33 @@ package com.go.asap;
 import com.go.asap.m.*;
 import com.go.asap.m.Loader;
 import com.go.asap.m.Row;
+import com.mxgraph.layout.mxCircleLayout;
+import com.mxgraph.layout.mxIGraphLayout;
+import com.mxgraph.util.mxCellRenderer;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectRBTreeMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import org.jgrapht.Graph;
+import org.jgrapht.alg.util.NeighborCache;
+import org.jgrapht.ext.JGraphXAdapter;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
+import org.jgrapht.graph.SimpleGraph;
+import org.jgrapht.traverse.BreadthFirstIterator;
+import org.jgrapht.traverse.DepthFirstIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -734,6 +747,363 @@ public class AsapApplication implements CommandLineRunner {
 	}
 
 
+	public static Graph<String, DefaultEdge> buildGraphV2(TreeMap<String, BitSet> characValueToLineBitset, String signature) {
+		Graph<String, DefaultEdge> graph = new SimpleGraph<>(DefaultEdge.class);
+		String[] signatureOrder = signature.split(" ");
+
+		// Add vertices
+		for (String charValue : characValueToLineBitset.keySet()) {
+			graph.addVertex(charValue);
+		}
+
+		// Add edges based on BitSet intersections
+		List<String> tmp = new ArrayList<>();
+		for (String charValue1 : characValueToLineBitset.keySet()) {
+			System.out.println("COMPARE : " + charValue1);
+			System.out.println(" ==== ");
+			BitSet b = (BitSet) characValueToLineBitset.get(charValue1).clone();
+			tmp.add(charValue1);
+			while ( tmp.size() != signature.length() ) {
+
+			}
+
+		}
+
+		return graph;
+	}
+
+	public static Graph<String, DefaultEdge> buildGraph(TreeMap<String, BitSet> characValueToLineBitset, String signature) {
+		Graph<String, DefaultEdge> graph = new SimpleGraph<>(DefaultEdge.class);
+		String[] signatureOrder = signature.split(" ");
+
+		// Add vertices
+		for (String charValue : characValueToLineBitset.keySet()) {
+			graph.addVertex(charValue);
+		}
+
+		// Add edges based on BitSet intersections
+		for (String charValue1 : characValueToLineBitset.keySet()) {
+			for (String charValue2 : characValueToLineBitset.keySet()) {
+				if (!charValue1.equals(charValue2)) {
+					System.out.println("char value 1 " + charValue1);
+					BitSet bitSet1 = characValueToLineBitset.get(charValue1);
+					BitSet bitSet2 = characValueToLineBitset.get(charValue2);
+					System.out.println("char value 2 " + charValue1);
+
+					BitSet intersection = (BitSet) bitSet1.clone();
+					intersection.and(bitSet2);
+					System.out.println("intersection ? " + intersection);
+
+					if (!intersection.isEmpty()) {
+						System.out.println("Add edge " + charValue1 + " -> " + charValue2);
+						graph.addEdge(charValue1, charValue2);
+					}
+
+					System.out.println();
+				}
+			}
+		}
+
+		// Prioritize traversal order based on the signature and connectivity
+		return prioritizeTraversalOrder(graph, signatureOrder);
+	}
+
+	private static Graph<String, DefaultEdge> prioritizeTraversalOrder(Graph<String, DefaultEdge> graph, String[] signatureOrder) {
+		NeighborCache<String, DefaultEdge> neighborCache = new NeighborCache<>(graph);
+		List<String> prioritizedNodes = new ArrayList<>();
+
+		// Add nodes from the signature order
+		for (String charValue : signatureOrder) {
+			if (graph.containsVertex(charValue)) {
+				prioritizedNodes.add(charValue);
+			}
+		}
+
+		// Add remaining nodes by connectivity
+		BreadthFirstIterator<String, DefaultEdge> bfsIterator = new BreadthFirstIterator<>(graph);
+		while (bfsIterator.hasNext()) {
+			String node = bfsIterator.next();
+			if (!prioritizedNodes.contains(node)) {
+				prioritizedNodes.add(node);
+			}
+		}
+
+		// Create a new graph with prioritized traversal order
+		Graph<String, DefaultEdge> prioritizedGraph = new SimpleGraph<>(DefaultEdge.class);
+		for (String node : prioritizedNodes) {
+			prioritizedGraph.addVertex(node);
+		}
+		for (String node : prioritizedNodes) {
+			for (String neighbor : neighborCache.neighborsOf(node)) {
+				if (prioritizedNodes.contains(neighbor)) {
+					prioritizedGraph.addEdge(node, neighbor);
+				}
+			}
+		}
+
+		return prioritizedGraph;
+	}
+
+
+	public static List<List<String>> findAllCombinations(Graph<String, DefaultEdge> graph, String startNode) {
+		
+		System.out.println("Start with node : " + startNode);
+		List<List<String>> allCombinations = new ArrayList<>();
+		Set<String> visited = new HashSet<>();
+		List<String> currentCombination = new ArrayList<>();
+
+		dfs(graph, startNode, visited, currentCombination, allCombinations);
+
+		return allCombinations;
+	}
+
+	// we could have cycle in our graph, causing infinite loop if you explore it badly !
+	private static void dfs(Graph<String, DefaultEdge> graph, String currentNode, Set<String> visited, List<String> currentCombination, List<List<String>> allCombinations) {
+		// Debugging print statement
+		System.out.println("Exploring: " + currentNode);
+		System.out.println("Visited : " + visited);
+		System.out.println("Current combination " + currentCombination);
+
+		// Mark the current node as visited
+		visited.add(currentNode);
+		currentCombination.add(currentNode);
+
+		// Add a copy of the current combination to the list of all combinations
+		allCombinations.add(new ArrayList<>(currentCombination));
+
+		// Explore each adjacent node
+		for (DefaultEdge edge : graph.edgesOf(currentNode)) {
+			String neighbor = graph.getEdgeTarget(edge).equals(currentNode) ? graph.getEdgeSource(edge) : graph.getEdgeTarget(edge);
+
+			// Only visit the neighbor if it hasn't been visited yet
+			if (!visited.contains(neighbor)) {
+				dfs(graph, neighbor, visited, currentCombination, allCombinations);
+			}
+		}
+
+		// Backtrack: unmark the current node and remove it from the current combination
+		visited.remove(currentNode);
+		currentCombination.remove(currentCombination.size() - 1);
+	}
+
+	public static void computeCombinations(Graph<String, DefaultEdge> graph, TreeMap<String, List<String>> possiblesValues, Map<String, Integer> orderEnumeration, String signature) {
+
+		System.out.println("Before : " + possiblesValues);
+		Iterator<String> iterator = possiblesValues.keySet().iterator();
+		while (iterator.hasNext()) {
+			String key = iterator.next();
+			if (!signature.contains(key)) {
+				iterator.remove();
+			}
+		}
+		System.out.println("After : " + possiblesValues);
+
+
+		// Get possibles values for signature
+		// TODO
+		System.out.println("Start computation : " + signature);
+		System.out.println(graph);
+		System.out.println(graph.vertexSet());
+		System.out.println(graph.edgeSet());
+		System.out.println(orderEnumeration);
+		System.out.println(possiblesValues);
+		// TODO
+		if ( possiblesValues.isEmpty() ) {
+			System.out.print("No combination possibles !");
+		} else {
+
+			// Get first vertex
+			String firstVertex = orderEnumeration.keySet().stream().findFirst().orElseThrow();
+			String firstVertexValue = possiblesValues.get(firstVertex).stream().findFirst().orElseThrow();
+			String combinedKey = firstVertex+"_"+firstVertexValue;
+
+			DepthFirstIterator<String, DefaultEdge> dfsIt = new DepthFirstIterator<>(graph, combinedKey);
+
+			Set<String> visited = new HashSet<>();
+
+			// Parcours du graphe en profondeur
+			while (dfsIt.hasNext()) {
+				String vertex = dfsIt.next();
+				if (visited.add(vertex)) {  // Vérifie si le sommet a été ajouté, indiquant qu'il n'était pas déjà visité
+					System.out.println("Visiting: " + vertex);
+
+					// Explorer les voisins
+					graph.edgesOf(vertex).forEach(edge -> {
+						String source = graph.getEdgeSource(edge);
+						String target = graph.getEdgeTarget(edge);
+						if (!vertex.equals(target) && visited.add(target)) {
+							System.out.println(vertex + " -> " + target);
+						} else if (!vertex.equals(source) && visited.add(source)) {
+							System.out.println(vertex + " -> " + source);
+						}
+					});
+				}
+			}
+
+			/*
+			graph.edgesOf(combinedKey).forEach( edge -> {
+				String source = graph.getEdgeSource(edge);
+				String target = graph.getEdgeTarget(edge);
+
+				if (source.equals(combinedKey)) {
+					System.out.println("Voisin de : "+ combinedKey + " - " + target);
+				} else if (target.equals(combinedKey)) {
+					System.out.println("Voisin de : " + combinedKey + " - " + source);
+				}
+			});
+
+			 */
+
+			/*
+			BreadthFirstIterator<String, DefaultEdge> iteratorDfs = new BreadthFirstIterator<>(graph, combinedKey);
+			while (iteratorDfs.hasNext()) {
+				String vertex = iteratorDfs.next();
+				System.out.println("Visiting vertex: " + vertex);
+				for (DefaultEdge edge : graph.edgesOf(vertex)) {
+					var target = graph.getEdgeTarget(edge);
+					if ( !vertex.equalsIgnoreCase(target) ) {
+						System.out.println(vertex + " -> " + target);
+					}
+				}
+			}*/
+
+		}
+	}
+
+
+	public static void findIntersections(Map<String, BitSet> dataMap, String prefix1, String prefix2) {
+		Map<String, TreeMap<String, BitSet>> groupedMap = new HashMap<>();
+
+		// Group data by prefix
+		for (Map.Entry<String, BitSet> entry : dataMap.entrySet()) {
+			String prefix = entry.getKey().substring(0, 3);
+			groupedMap.computeIfAbsent(prefix, k -> new TreeMap<>()).put(entry.getKey(), entry.getValue());
+		}
+
+		// Get the groups based on the specified prefixes
+		TreeMap<String, BitSet> group1 = groupedMap.getOrDefault(prefix1, new TreeMap<>());
+		TreeMap<String, BitSet> group2 = groupedMap.getOrDefault(prefix2, new TreeMap<>());
+
+		// Find and print intersections
+		for (Map.Entry<String, BitSet> entry1 : group1.entrySet()) {
+			for (Map.Entry<String, BitSet> entry2 : group2.entrySet()) {
+				BitSet intersection = (BitSet) entry1.getValue().clone();
+				intersection.and(entry2.getValue());
+				if (!intersection.isEmpty()) {
+					System.out.println(entry1.getKey() + " intersects with " + entry2.getKey());
+				}
+			}
+		}
+	}
+
+	public static void findMultiIntersections(Map<String, BitSet> dataMap, List<String> prefixes) {
+		Map<String, TreeMap<String, BitSet>> groupedMap = new HashMap<>();
+
+		// Group data by prefix
+		for (Map.Entry<String, BitSet> entry : dataMap.entrySet()) {
+			String prefix = entry.getKey().substring(0, 3);
+			groupedMap.computeIfAbsent(prefix, k -> new TreeMap<>()).put(entry.getKey(), entry.getValue());
+		}
+
+		// Prepare to find intersections among all groups
+		List<TreeMap<String, BitSet>> groups = new ArrayList<>();
+		for (String prefix : prefixes) {
+			groups.add(groupedMap.getOrDefault(prefix, new TreeMap<>()));
+		}
+
+		// Recursive function to process combinations
+		recursiveFind(new ArrayList<>(), groups, 0, null);
+	}
+
+
+
+	private static void recursiveFind(List<String> currentKeys, List<TreeMap<String, BitSet>> groups, int index, BitSet currentIntersection) {
+		String currentCombination = String.join(" ", currentKeys).replace("_", "");
+
+		// Debugging points
+		if (currentCombination.equalsIgnoreCase("B0C_P2 B0F_ES B0G_0F B0H_B0 DAQ_05")) {
+			System.out.println("bingo");
+			System.out.println(currentIntersection);
+		}
+
+		if (currentCombination.equalsIgnoreCase("B0C_P2 B0F_ES B0G_0F B0H_B0 DAQ_00")) {
+			System.out.println("bingo stop");
+			System.out.println(currentIntersection);
+		}
+
+		if (index == groups.size()) {
+			if (currentIntersection != null && !currentIntersection.isEmpty()) {
+				System.out.println(currentCombination);
+			}
+			return;
+		}
+
+		TreeMap<String, BitSet> currentGroup = groups.get(index);
+		for (Map.Entry<String, BitSet> entry : currentGroup.entrySet()) {
+			BitSet newIntersection = currentIntersection == null ? (BitSet) entry.getValue().clone() : (BitSet) currentIntersection.clone();
+			if (currentIntersection != null) {
+				newIntersection.and(entry.getValue());
+			}
+
+			// Update the keys only if the new intersection is not empty or it is the first group
+			List<String> newKeys = new ArrayList<>(currentKeys);
+			if (!newIntersection.isEmpty() || currentIntersection == null) {
+				newKeys.add(entry.getKey());
+			} //else {
+				// Continue even if the intersection is empty
+				//List<String> newKeys = new ArrayList<>(currentKeys);
+				//newKeys.add(entry.getKey());
+				//recursiveFind(newKeys, groups, index + 1, currentIntersection);
+			//}
+			recursiveFind(newKeys, groups, index + 1, newIntersection);
+
+
+		}
+	}
+
+	public static void findAllPaths(Graph<String, DefaultEdge> graph, String startVertex, List<String> combinations) {
+		Set<String> visited = new HashSet<>();
+		Stack<String> path = new Stack<>();
+		path.push(startVertex);
+		dfs(graph, startVertex, visited, path, 1, combinations);  // 1 pour la profondeur initiale avec B0G_01
+	}
+
+	private static void dfs(Graph<String, DefaultEdge> graph, String currentVertex, Set<String> visited, Stack<String> path, int depth, List<String> combinations) {
+		visited.add(currentVertex);
+
+		// Affichage du chemin actuel si la profondeur est 3 (B0G, B0E, B0F)
+		if (depth == 3) {
+			ArrayList ar = new ArrayList(path);
+			StringBuilder builder = new StringBuilder();
+			path.forEach(p -> builder.append(p+" "));
+			combinations.add(builder.toString());
+			System.out.println(builder.toString().replace("_",""));
+			visited.remove(currentVertex); // Pour permettre d'autres explorations
+			return;
+		}
+
+		for (DefaultEdge edge : graph.edgesOf(currentVertex)) {
+			String target = graph.getEdgeTarget(edge);
+			if (target.equals(currentVertex)) {
+				target = graph.getEdgeSource(edge);
+			}
+
+			if (!visited.contains(target) && isCorrectType(target, depth)) {
+				path.push(target);
+				dfs(graph, target, visited, path, depth + 1, combinations);
+				path.pop();
+			}
+		}
+
+		visited.remove(currentVertex);
+	}
+
+	// Vérifie si le sommet correspond au type attendu selon la profondeur
+	private static boolean isCorrectType(String vertex, int depth) {
+		if (depth == 1 && vertex.startsWith("B0E_")) return true;
+		if (depth == 2 && vertex.startsWith("B0F_")) return true;
+		return false;
+	}
 
     public static void main(String[] args) {
 		SpringApplication.run(AsapApplication.class, args);
@@ -869,8 +1239,8 @@ public class AsapApplication implements CommandLineRunner {
 		*/
 
 		// TODO ici il faut voir le log pour mettre dans le bon ordre ( enumeration ) mais putin faut retrouver ça dans le code c++ !
-		String signature = "B0C B0F B0G B0H DAQ"; //"B0C B0F B0G B0H DAQ"; //"AA BB CC"; //"AA BB CC"; //"B0C B0F B0G B0H DAQ"; //"B0E B0F DFH REG"; //"B0E B0H B0J";
-
+		//String signature = "B0B B0C B0E B0F B0G"; //"B0C B0F B0G B0H DAQ"; //"AA BB CC"; //"AA BB CC"; //"B0C B0F B0G B0H DAQ"; //"B0E B0F DFH REG"; //"B0E B0H B0J";
+		String signature = "B0C B0F B0G B0H DAQ";
 		String tables = "P22";//"enumerator_test"; // "m"
 		String folder = "P22"; //"enumerator_test"; // "m"
 
@@ -897,8 +1267,15 @@ public class AsapApplication implements CommandLineRunner {
 		TreeMap<String, Integer> valueToIndex = new TreeMap<>();
 		TreeMap<Integer, String> indexToValue = new TreeMap<>();
 
+		AtomicInteger globalIdxLine = new AtomicInteger(1);
+		TreeMap<String, BitSet> characValueToLineBitset = new TreeMap<>();
+
 		for (String file : filePrdList) {
-			Loader.readTableAndBuildIndexMap(folder, file, characteristic_value_for_tables, valueToIndex, indexToValue, globalIdx);
+
+			// TODO
+			Loader.readTableAndBuildIndexMapV2(folder, file, characteristic_value_for_tables, valueToIndex, indexToValue, globalIdx, globalIdxLine, characValueToLineBitset);
+			// TODO to remove ?
+			//Loader.readTableAndBuildIndexMap(folder, file, characteristic_value_for_tables, valueToIndex, indexToValue, globalIdx);
 		}
 
 		// Raw tables aggregation
@@ -1039,11 +1416,101 @@ public class AsapApplication implements CommandLineRunner {
 		}
 
 
-		LOG.info("Generate combinations for signature : {}",signature);
 
-		// In possibles values defined by pseudo tables pr processing, keep only the characteristic for the signature provided
+		//findIntersections(characValueToLineBitset, "B0F", "B0E");
+
+		findMultiIntersections(characValueToLineBitset, Arrays.asList(signature.split(" ")));
+
+
+		/*
+		Graph<String, DefaultEdge> graph = buildGraph(characValueToLineBitset, signature);
+		System.out.println("Graph vertices: " + graph.vertexSet());
+		System.out.println("Graph edges: " + graph.edgeSet());
+
+
+
+		JGraphXAdapter<String, DefaultEdge> graphAdapter =
+				new JGraphXAdapter<String, DefaultEdge>(graph);
+		mxIGraphLayout layout = new mxCircleLayout(graphAdapter);
+		layout.execute(graphAdapter.getDefaultParent());
+
+		BufferedImage image =
+				mxCellRenderer.createBufferedImage(graphAdapter, null, 2, Color.WHITE, true, null);
+		File imgFile = new File("src/test/resources/graph.png");
+		ImageIO.write(image, "PNG", imgFile);
+
+		TreeMap<String, Integer> tmpEnum = new TreeMap<>();
+		for (String vertex : graph.vertexSet()) {
+			var charac = getFirstSegment(vertex, '_');
+			if ( tmpEnum.containsKey(charac) ) {
+				Integer t = tmpEnum.get(charac);
+				t =+ graph.degreeOf(vertex);
+				tmpEnum.put(charac, t);
+			} else {
+				tmpEnum.put(charac, graph.degreeOf(vertex));
+			}
+		}
+
+		// Create a new LinkedHashMap to maintain the order of insertion
+		Map<String, Integer> orderEnumeration = new LinkedHashMap<>();
+
+		// Add entries from the signature list first, sorted by their values descending
+		Arrays.stream(signature.split(" "))
+				.sorted(Comparator.comparing(tmpEnum::get).reversed())
+				.forEach(key -> orderEnumeration.put(key, tmpEnum.get(key)));
+
+		// Add the remaining entries sorted by their values descending
+		tmpEnum.entrySet().stream()
+				.filter(entry -> !orderEnumeration.containsKey(entry.getKey()))
+				.sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+				.forEach(entry -> orderEnumeration.put(entry.getKey(), entry.getValue()));
+
+		// Print the sorted map
+		LOG.info("Order enumeration : ");
+		orderEnumeration.forEach((key, value) -> System.out.print(key + "=" + value + "(edges)" + " "));
+
+		System.out.println();
+
+		// fin boucle sur les tables
+		LOG.info("Possibles values : ");
+		// Map temporaire pour regrouper les valeurs par préfixe
+		TreeMap<String, List<String>> groupedValues2 = new TreeMap<>();
+
+		// Parcourir chaque entrée du TreeMap
+		for (Map.Entry<String, List<BitSet>> entry : memoizationPossiblesValues.entrySet()) {
+			String key = entry.getKey();
+			String prefix = key.split("_")[0];
+			String suffix = key.split("_")[1];
+
+			// Ajouter le suffixe à la liste correspondante dans le groupedValues2
+			groupedValues2.computeIfAbsent(prefix, k -> new ArrayList<>()).add(suffix);
+		}
+
+		// Afficher les résultats formatés
+		for (Map.Entry<String, List<String>> entry : groupedValues2.entrySet()) {
+			System.out.print(entry.getKey() + ": ");
+			for (String value : entry.getValue()) {
+				System.out.print(value + " ");
+			}
+			System.out.println();
+		}
+
+
+		System.out.println("Generate combination for signature : " + signature);
+
+		/*
+		List<List<String>> allCombinations = findAllCombinations(graph, "B0F_MT");
+
+		System.out.println("All combinations:");
+		for (List<String> combination : allCombinations) {
+			System.out.println(combination);
+		}*/
+
+		//computeCombinations(graph, groupedValues2,orderEnumeration, signature );
+
+
+		/*
 		TreeMap<String, List<BitSet>> memoizationPossiblesValuesFiltered = filterTreeMapBySignature(memoizationPossiblesValues, new HashSet<>(Arrays.asList(signature.split(" "))));
-		//LOG.info("Possibles values after filtering by signature : {}", memoizationPossiblesValuesFiltered);
 
 		LOG.info("Possibles values after filtering by signature :");
 		TreeMap<String, List<String>> x = new TreeMap<>();
@@ -1067,20 +1534,6 @@ public class AsapApplication implements CommandLineRunner {
 			System.out.println();
 		}
 
-
-
-		// TODO ? ça supprime toute la ligne je sais pas si c'est ok ça pour moi il faut garder l'index plutot, pas le bitset je pense
-		//var invalidBitSets = invalidateCombinations(memoizationPossiblesValues, new HashSet<>(Arrays.asList(signature.split(" "))));
-
-		// Generate valid combinations
-		//Set<String> combinations = generateCombinationsForSignature(memoizationPossiblesValuesFiltered, invalidBitSets, Arrays.asList(signature.split(" ")));
-		/*
-		for (String combination : combinations) {
-			System.out.println(combination);
-		}
-
-		System.out.println(combinations.size() + " combinations for signature " + signature);
-		 */
 
 
 		// Build invalid bitset from index deleted
@@ -1130,48 +1583,11 @@ public class AsapApplication implements CommandLineRunner {
 
 
 
-		/*
-		Graph<String, DefaultEdge> graph = new DefaultDirectedGraph<>(DefaultEdge.class);
-		createGraph(aggregationPseudoTables, Arrays.asList(signatureSplited), graph);
-		traverseGraph(graph, "B0C_P2", Arrays.asList(signatureSplited), aggregationPseudoTables, indexToValue, valueToIndex);
-		System.out.println(graph);
-		 */
-
-
 
 		int combinationCount = traverseGroupsV2(groups, signature, invalidBitSets, valueToIndex, indexToValue);
 		long end = System.currentTimeMillis();
 		System.out.println("Nombre de combinaisons valides: " + combinationCount + " in " + (end - start) + " ms");
-
-
-		// Prepare groups
-		/*
-		HashMap<String, List<String>> grp = new HashMap<>();
-		for ( String charSignature: signatureSplited ) {
-
-			if ( !grp.containsKey(charSignature) ) {
-				grp.put(charSignature, new ArrayList<>());
-			}
-		}
-
-		memoizationPossiblesValuesFiltered.keySet().forEach( key -> {
-			String[] splitedKey = key.split("_");
-			grp.computeIfPresent(splitedKey[0], (k, v) -> {
-				v.add(key);
-				return v;
-			});
-		});
-
-		List<List<String>> validCombinations = excelFilter(Arrays.stream(signature.split(" ")).toList(), aggregationPseudoTables, valueToIndex, indexToValue, grp);
-
-		for (List<String> combination : validCombinations) {
-			System.out.println(combination);
-		}
-
-		long end = System.currentTimeMillis();
-		System.out.println("Nombre de combinations valides : " + validCombinations.size() + " en " + (end - start) + " ms");
-
-		 */
+		*/
 
 
 
