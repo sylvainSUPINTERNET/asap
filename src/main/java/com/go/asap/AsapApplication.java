@@ -13,6 +13,8 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectRBTreeMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import org.jgrapht.Graph;
+import org.jgrapht.GraphPath;
+import org.jgrapht.alg.shortestpath.AllDirectedPaths;
 import org.jgrapht.alg.util.NeighborCache;
 import org.jgrapht.ext.JGraphXAdapter;
 import org.jgrapht.graph.DefaultDirectedGraph;
@@ -1123,7 +1125,362 @@ public class AsapApplication implements CommandLineRunner {
 		return orderedCaracs;
 	}
 
-    public static void main(String[] args) {
+
+	public static List<String[][]> getTable1() {
+		List<String[][]> table1 = new ArrayList<>();
+		table1.add(new String[][]{
+				{"B0F", "MK"},
+				{"B0G", "01"},
+				{"B0E", "0R"},
+				{"B0H", "X1"}
+		});
+		table1.add(new String[][]{
+				{"B0F", "MK"},
+				{"B0G", "02"},
+				{"B0E", "0L"},
+				{"B0H", "X2"}
+		});
+		table1.add(new String[][]{
+				{"B0F", "ZI"},
+				{"B0G", "03"},
+				{"B0E", "0J"},
+				{"B0H", "X3"}
+		});
+		return table1;
+	}
+
+	public static List<String[][]> getTable2() {
+		List<String[][]> table2 = new ArrayList<>();
+		table2.add(new String[][]{
+				{"B0F", "ZI"}
+		});
+		return table2;
+	}
+
+	public static List<String[][]> getTable3() {
+		List<String[][]> table3 = new ArrayList<>();
+		table3.add(new String[][]{
+				{"B0F", "ZI"},
+				{"B0G", "01"}
+		});
+		return table3;
+	}
+
+
+	// apply relationship in same table
+	// we cannot have "bridge" between table to build a valid path §
+
+	/*
+	private static void addNodesAndEdges(Graph<String, DefaultEdge> graph, List<String[][]> table) {
+		for (String[][] row : table) {
+			String previousNode = null;
+			for (String[] cv : row) {
+				String node = cv[0] + "=" + cv[1];
+				graph.addVertex(node);
+				if (previousNode != null) {
+					// Ajout de l'arête uniquement si elle n'existe pas déjà
+					if (!graph.containsEdge(previousNode, node)) {
+						graph.addEdge(previousNode, node);
+					}
+				}
+				previousNode = node;
+			}
+		}
+	}*/
+
+
+	/* // with table in name
+	private static void addNodesAndEdges(Graph<String, DefaultEdge> graph, List<String[][]> table, String tableName) {
+		for (String[][] row : table) {
+			String previousNode = null;
+			for (String[] cv : row) {
+				String node = tableName+"_"+cv[0] + "=" + cv[1];
+				graph.addVertex(node);
+				if (previousNode != null) {
+					// Ajout de l'arête uniquement si elle n'existe pas déjà
+					if (!graph.containsEdge(previousNode, node)) {
+						graph.addEdge(previousNode, node);
+					}
+				}
+				previousNode = node;
+			}
+		}
+	} */
+
+
+	private static void addNodesAndEdges(Graph<String, DefaultEdge> graph, List<String[][]> table) {
+		Set<String> validConnections = new HashSet<>();
+
+		for (String[][] row : table) {
+			String previousNode = null;
+			for (String[] cv : row) {
+				String node =  cv[0] + "=" + cv[1];
+				graph.addVertex(node);
+				if (previousNode != null) {
+					validConnections.add(previousNode + "->" + node);
+				}
+				previousNode = node;
+			}
+		}
+
+		for (String connection : validConnections) {
+			String[] nodes = connection.split("->");
+			if (!graph.containsEdge(nodes[0], nodes[1])) {
+				graph.addEdge(nodes[0], nodes[1]);
+			}
+		}
+	}
+
+
+
+	private static List<List<String>> generateCombinations(Graph<String, DefaultEdge> graph, Map<String, List<String>> signature) {
+		List<List<String>> combinations = new ArrayList<>();
+		List<String> targetNodes = new ArrayList<>();
+
+		for (Map.Entry<String, List<String>> entry : signature.entrySet()) {
+			String characteristic = entry.getKey();
+			for (String value : entry.getValue()) {
+				targetNodes.add(characteristic + "=" + value);
+			}
+		}
+
+		for (String startNode : graph.vertexSet()) {
+			List<String> path = new ArrayList<>();
+			Set<String> visited = new HashSet<>();
+			findPaths(graph, startNode, targetNodes, path, visited, combinations);
+		}
+
+		return combinations;
+	}
+
+	private static void findPaths(Graph<String, DefaultEdge> graph, String currentNode, List<String> targetNodes, List<String> path, Set<String> visited, List<List<String>> combinations) {
+		path.add(currentNode);
+		visited.add(currentNode);
+
+		if (targetNodes.contains(currentNode) && allTargetsVisited(path, targetNodes)) {
+			if (path.stream().anyMatch(node -> node.startsWith("B0F="))) {
+				combinations.add(new ArrayList<>(path));
+			}
+		} else {
+			for (DefaultEdge edge : graph.outgoingEdgesOf(currentNode)) {
+				String nextNode = graph.getEdgeTarget(edge);
+				if (!visited.contains(nextNode)) {
+					findPaths(graph, nextNode, targetNodes, path, visited, combinations);
+				}
+			}
+		}
+
+		path.remove(path.size() - 1);
+		visited.remove(currentNode);
+	}
+
+	private static boolean allTargetsVisited(List<String> path, List<String> targetNodes) {
+		for (String target : targetNodes) {
+			if (!path.contains(target)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+
+	public static LinkedList<String> getOrderEnumeration(Graph<String, DefaultEdge> graph, TreeMap<String, List<String>> signatureWithPossiblesValues) {
+
+		Map<String, Integer> connectivity = new HashMap<>();
+		for (String vertex : graph.vertexSet()) {
+			int degree = graph.inDegreeOf(vertex) + graph.outDegreeOf(vertex);
+			connectivity.put(vertex, degree);
+		}
+
+		LinkedList<String> orderedNodes = new LinkedList<>(graph.vertexSet());
+		// Ordonner les nœuds par connectivité décroissante
+		orderedNodes.sort((node1, node2) -> {
+			int degree1 = connectivity.getOrDefault(node1, 0);
+			int degree2 = connectivity.getOrDefault(node2, 0);
+			return Integer.compare(degree2, degree1);
+		});
+
+		// Placer les caractéristiques de la signature en premier
+		orderedNodes.sort((node1, node2) -> {
+			boolean isNode1InSignature = isNodeInSignature(node1, signatureWithPossiblesValues);
+			boolean isNode2InSignature = isNodeInSignature(node2, signatureWithPossiblesValues);
+			if (isNode1InSignature && !isNode2InSignature) {
+				return -1;
+			} else if (!isNode1InSignature && isNode2InSignature) {
+				return 1;
+			} else {
+				return 0;
+			}
+		});
+
+		return orderedNodes;
+	}
+
+	private static boolean isNodeInSignature(String node, Map<String, List<String>> signature) {
+		for (String characteristic : signature.keySet()) {
+			if (node.startsWith(characteristic + "=")) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+
+
+
+	private static void generateCombination(Graph<String, DefaultEdge> graph, LinkedHashSet<String> orderedNodes, TreeMap<String, List<String>> signatureWithPossiblesValues) {
+		// Liste pour stocker les combinaisons valides
+		List<Set<String>> validCombinations = new ArrayList<>();
+
+		// Keep order node only for signature
+		LinkedList<String> filterOrderNodes = orderedNodes.stream()
+				.filter(o -> signatureWithPossiblesValues.containsKey(o.split("=")[0]))
+				.collect(Collectors.toCollection(LinkedList::new));
+
+		for (String orderNode : filterOrderNodes) {
+			if (orderNode.startsWith("B0F")) {  // Change condition as needed
+				System.out.println("Visit paths for " + orderNode);
+
+				List<String> possiblesValueForOrderNode = signatureWithPossiblesValues.get(orderNode.split("=")[0]);
+				System.out.println("--> " + possiblesValueForOrderNode);
+
+				for (String possibleValue : possiblesValueForOrderNode) {
+					String startNode = orderNode.split("=")[0] + "=" + possibleValue;
+					System.out.println("-----> Explore path for " + startNode);
+					HashSet<String> visited = new HashSet<>();
+					Map<String, String> nodeValues = new HashMap<>();
+					explorePath(graph, startNode, visited, nodeValues, validCombinations, filterOrderNodes, signatureWithPossiblesValues);
+					System.out.println();
+				}
+			}
+		}
+
+		// Afficher les combinaisons valides
+		System.out.println("Valid Combinations:");
+		for (Set<String> combination : validCombinations) {
+			System.out.println(combination);
+		}
+	}
+
+
+
+	private static void explorePath(Graph<String, DefaultEdge> graph, String currentNode, HashSet<String> visited, Map<String, String> nodeValues, List<Set<String>> validCombinations, LinkedList<String> filterOrderNodes, TreeMap<String, List<String>> signatureWithPossiblesValues) {
+		visited.add(currentNode);
+		String currentKey = currentNode.split("=")[0];
+		String currentValue = currentNode.split("=")[1];
+		nodeValues.put(currentKey, currentValue);
+
+		System.out.println("Visiting node: " + currentNode + ", visited: " + visited);
+
+		// Vérifier si toutes les caractéristiques de la signature sont visitées
+		if (nodeValues.keySet().containsAll(signatureWithPossiblesValues.keySet())) {
+			// Filtrer les nœuds visités pour ne garder que ceux correspondant à la signature
+			Set<String> validCombination = new HashSet<>();
+			for (String node : visited) {
+				String key = node.split("=")[0];
+				if (signatureWithPossiblesValues.containsKey(key)) {
+					validCombination.add(node);
+				}
+			}
+			validCombinations.add(validCombination);
+			return; // Arrêter l'exploration après avoir trouvé une combinaison valide
+		}
+
+		for (DefaultEdge edge : graph.edgesOf(currentNode)) {
+			String target = graph.getEdgeTarget(edge);
+			String source = graph.getEdgeSource(edge);
+
+			String nextNode = source.equals(currentNode) ? target : source;
+			String nextKey = nextNode.split("=")[0];
+			String nextValue = nextNode.split("=")[1];
+
+			if (!visited.contains(nextNode) && (!nodeValues.containsKey(nextKey) || nodeValues.get(nextKey).equals(nextValue))) {
+				explorePath(graph, nextNode, new HashSet<>(visited), new HashMap<>(nodeValues), validCombinations, filterOrderNodes, signatureWithPossiblesValues);
+			}
+		}
+	}
+
+
+
+
+	/*
+	private static void generateCombination(Graph<String, DefaultEdge> graph, LinkedHashSet<String> orderedNodes, TreeMap<String, List<String>> signatureWithPossiblesValues) {
+		// Liste pour stocker les combinaisons valides
+		List<Set<String>> validCombinations = new ArrayList<>();
+
+		// Keep order node only for signature
+		LinkedList<String> filterOrderNodes = orderedNodes.stream()
+				.filter(o -> signatureWithPossiblesValues.containsKey(o.split("=")[0].split("_")[1]))
+				.collect(Collectors.toCollection(LinkedList::new));
+
+		for (String orderNode : filterOrderNodes) {
+			if (orderNode.contains("B0F")) {  // Change condition as needed
+				System.out.println("Visit paths for " + orderNode);
+
+				List<String> possiblesValueForOrderNode = signatureWithPossiblesValues.get(orderNode.split("=")[0].split("_")[1]);
+				System.out.println("--> " + possiblesValueForOrderNode);
+
+				for (String possibleValue : possiblesValueForOrderNode) {
+					String startNode = orderNode.split("=")[0].split("_")[0] + "_" + orderNode.split("=")[0].split("_")[1] + "=" + possibleValue;
+					System.out.println("-----> Explore path for " + startNode);
+					HashSet<String> visited = new HashSet<>();
+					Map<String, String> nodeValues = new HashMap<>();
+					explorePath(graph, startNode, visited, nodeValues, validCombinations, filterOrderNodes, signatureWithPossiblesValues);
+					System.out.println();
+				}
+			}
+		}
+
+		// Afficher les combinaisons valides
+		System.out.println("Valid Combinations:");
+		for (Set<String> combination : validCombinations) {
+			System.out.println(combination);
+		}
+	}*/
+
+	/*
+	private static void explorePath(Graph<String, DefaultEdge> graph, String currentNode, HashSet<String> visited, Map<String, String> nodeValues, List<Set<String>> validCombinations, LinkedList<String> filterOrderNodes, TreeMap<String, List<String>> signatureWithPossiblesValues) {
+		visited.add(currentNode);
+		String currentKey = currentNode.split("=")[0].split("_")[1];
+		String currentValue = currentNode.split("=")[1];
+		nodeValues.put(currentKey, currentValue);
+
+		System.out.println("Visiting node: " + currentNode + ", visited: " + visited);
+
+		// Vérifier si toutes les caractéristiques de la signature sont visitées
+		if (nodeValues.keySet().containsAll(signatureWithPossiblesValues.keySet())) {
+			// Filtrer les nœuds visités pour ne garder que ceux correspondant à la signature
+			Set<String> validCombination = new HashSet<>();
+			for (String node : visited) {
+				String key = node.split("=")[0].split("_")[1];
+				if (signatureWithPossiblesValues.containsKey(key)) {
+					validCombination.add(node);
+				}
+			}
+			validCombinations.add(validCombination);
+			return; // Arrêter l'exploration après avoir trouvé une combinaison valide
+		}
+
+		for (DefaultEdge edge : graph.edgesOf(currentNode)) {
+			String target = graph.getEdgeTarget(edge);
+			String source = graph.getEdgeSource(edge);
+
+			String nextNode = source.equals(currentNode) ? target : source;
+			String nextKey = nextNode.split("=")[0].split("_")[1];
+			String nextValue = nextNode.split("=")[1];
+
+			if (!visited.contains(nextNode) && (!nodeValues.containsKey(nextKey) || nodeValues.get(nextKey).equals(nextValue))) {
+				explorePath(graph, nextNode, new HashSet<>(visited), new HashMap<>(nodeValues), validCombinations, filterOrderNodes, signatureWithPossiblesValues);
+			}
+		}
+	}
+
+
+*/
+
+
+
+	public static void main(String[] args) {
 		SpringApplication.run(AsapApplication.class, args);
 	}
 
@@ -1131,354 +1488,108 @@ public class AsapApplication implements CommandLineRunner {
 	@Override
 	public void run(String... args) throws Exception {
 
-
-		// QUICK MOCK
-		// Index building
-		/*
-		TreeMap<String, Integer> valueToIndex = new TreeMap<>();
-		valueToIndex.put("F1_A1", 1);
-		valueToIndex.put("F1_A2", 2);
-		valueToIndex.put("F2_B1", 3);
-		valueToIndex.put("F2_B2", 4);
-		valueToIndex.put("F3_C1", 5);
-
-		TreeMap<Integer, String> indexToValue = new TreeMap<>();
-		indexToValue.put(1, "F1_A1");
-		indexToValue.put(2, "F1_A2");
-		indexToValue.put(3, "F2_B1");
-		indexToValue.put(4, "F2_B2");
-		indexToValue.put(5, "F3_C1");
-		 */
-
-
-		// Row bitset mapping
-
-		/*
-		var r1 = new BitSet();
-		r1.set(valueToIndex.get("F1_A1"));
-		r1.set(valueToIndex.get("F2_B1"));
-
-		var r2 = new BitSet();
-		r2.set(valueToIndex.get("F1_A2"));
-		r2.set(valueToIndex.get("F2_B1"));
-
-		var r3 = new BitSet();
-		r3.set(valueToIndex.get("F2_B1"));
-		r3.set(valueToIndex.get("F3_C1"));
-
-		var r4 = new BitSet();
-		r4.set(valueToIndex.get("F2_B2"));
-		r4.set(valueToIndex.get("F3_C1"));
-		 */
-
-
-		// Raw tables aggregation
-		/*
-		TreeMap<String, Table> aggregationRawTables = new TreeMap<>();
-		TreeSet<String> tableNames = new TreeSet<>();
-
-
-        Table table1 = new Table("table_1");
-		TreeMap<String, Row> valuesTable1 = new TreeMap<>();
-		var r1Clone = (BitSet) r1.clone();
-		var r2Clone = (BitSet) r2.clone();
-		valuesTable1.put("F1_A1", new Row(Boolean.TRUE, List.of(r1Clone)));
-		valuesTable1.put("F1_A2", new Row(Boolean.TRUE, List.of(r2Clone)));
-		valuesTable1.put("F2_B1", new Row(Boolean.TRUE, List.of(r1Clone, r2Clone)));
-		table1.setValue(valuesTable1);
-
-		Table table2 = new Table("table_2");
-		TreeMap<String, Row> valuesTable2 = new TreeMap<>();
-		var r3Clone = (BitSet) r3.clone();
-		var r4Clone = (BitSet) r4.clone();
-		valuesTable2.put("F2_B1", new Row(Boolean.TRUE, List.of(r3Clone)));
-		valuesTable2.put("F2_B2", new Row(Boolean.TRUE, List.of(r4Clone)));
-		valuesTable2.put("F3_C1", new Row(Boolean.TRUE, List.of(r3Clone, r4Clone)));
-		table2.setValue(valuesTable2);
-
-		tableNames.add("table_1");
-		tableNames.add("table_2");
-
-		aggregationRawTables.put("table_1", table1);
-		aggregationRawTables.put("table_2", table2);
-		*/
-
-
-	/*
-		TreeMap<String, Integer> indexMap = new TreeMap<>();
-		indexMap.put("B0G_01", 1);
-		indexMap.put("B0H_DB", 2);
-		indexMap.put("DGM_04", 3);
-		indexMap.put("DGM_05", 4);
-
-
-		TreeMap<String, List<BitSet>> memoizationPossiblesValues = new TreeMap<>();
-
-		List<BitSet> BOG_01_BITSET_LIST = new ArrayList<>();
-		BitSet b = new BitSet();
-		b.set(indexMap.get("B0G_01"));
-		b.set(indexMap.get("B0H_DB"));
-		b.set(indexMap.get("DGM_04"));
-		b.set(100);
-		BOG_01_BITSET_LIST.add(b);
-		memoizationPossiblesValues.put("B0G_01", BOG_01_BITSET_LIST);
-
-		List<BitSet> BOH_DB_BITSET_LIST = new ArrayList<>();
-		BitSet b2 = new BitSet();
-		b2.set(indexMap.get("B0G_01"));
-		b2.set(indexMap.get("B0H_DB"));
-		b2.set(indexMap.get("DGM_04"));
-		BOH_DB_BITSET_LIST.add(b2);
-		memoizationPossiblesValues.put("B0H_DB", BOH_DB_BITSET_LIST);
-
-		List<BitSet> DGM_04_BITSET_LIST = new ArrayList<>();
-		BitSet b3 = new BitSet();
-		b3.set(indexMap.get("B0G_01"));
-		b3.set(indexMap.get("B0H_DB"));
-		b3.set(indexMap.get("DGM_04"));
-		DGM_04_BITSET_LIST.add(b3);
-		memoizationPossiblesValues.put("DGM_04", DGM_04_BITSET_LIST);
-
-		var signature = "B0G B0H DGM";
-		var possiblesValues = List.of("B0G_01", "B0H_DB", "DGM_04", "DGM_05");
-
-
-		HashMap<String, List<List<BitSet>>> groups = new HashMap<>();
-		for (String possibleValue : possiblesValues) {
-			if ( groups.containsKey(getFirstSegment(possibleValue, '_')) ) {
-				groups.get(getFirstSegment(possibleValue, '_')).add(memoizationPossiblesValues.get(possibleValue));
-			} else {
-				groups.put(getFirstSegment(possibleValue, '_'), new ArrayList<>(List.of(memoizationPossiblesValues.get(possibleValue))));
-			}
-		}
-
-		System.out.println(groups);
-
-		*/
-
-		// TODO ici il faut voir le log pour mettre dans le bon ordre  ( enumeration ) mais putin faut retrouver ça dans le code c++ !
-		//String signature = "B0B B0C B0E B0F B0G"; //"B0C B0F B0G B0H DAQ"; //"AA BB CC"; //"AA BB CC"; //"B0C B0F B0G B0H DAQ"; //"B0E B0F DFH REG"; //"B0E B0H B0J";
-		String signature = "B0C B0F B0G B0H DAQ";
-		String tables = "P22";//"enumerator_test"; // "m"
-		String folder = "P22"; //"enumerator_test"; // "m"
-
-		ObjectArrayList<String> filePrdList = new ObjectArrayList<>();
-		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") || tables.equalsIgnoreCase("tmp") || tables.equalsIgnoreCase("m") || tables.equalsIgnoreCase("spe")  || tables.equalsIgnoreCase("m2") || tables.equalsIgnoreCase("enumerator_test")) {
-			if ( tables.equalsIgnoreCase("ZZK9") )
-				filePrdList.addAll(Arrays.stream(ZZK9Table.TABLES.split("\n")).toList());
-			else if ( tables.equalsIgnoreCase("P22") ) {
-				filePrdList.addAll(Arrays.stream(P22Table.TABLES.split("\n")).toList());
-			} else if ( tables.equalsIgnoreCase("spe") )  {
-				filePrdList.addAll(Arrays.stream(TestTable.TEST_TABLES_SPE.split("\n")).toList());
-			} else if (tables.equalsIgnoreCase("enumerator_test")) {
-				filePrdList.addAll(Arrays.stream(TestTable.TEST_TABLES_ENUMERATOR.split("\n")).toList());
-			} else {
-				filePrdList.addAll(Arrays.stream(TestTable.TEST_TABLES.split("\n")).toList());
-			}
-		} else {
-			throw new IllegalArgumentException("Table not supported, only support P22 ZZK9");
-		}
-
-
-		AtomicInteger globalIdx = new AtomicInteger(1);
-		HashSet<String> characteristic_value_for_tables = new HashSet<>();
-		TreeMap<String, Integer> valueToIndex = new TreeMap<>();
-		TreeMap<Integer, String> indexToValue = new TreeMap<>();
-
-		AtomicInteger globalIdxLine = new AtomicInteger(1);
-		TreeMap<String, BitSet> characValueToLineBitset = new TreeMap<>();
-
-
-		TreeMap<String, TreeMap<String, TableRow>> tablesLair = new TreeMap<>();
-
-		for (String file : filePrdList) {
-
-			// TODO
-			//Loader.readTableAndBuildIndexMapV2(folder, file, characteristic_value_for_tables, valueToIndex, indexToValue, globalIdx, globalIdxLine, characValueToLineBitset);
-
-
-			Loader.readTableAndBuildIndexMapV3(folder, file, characteristic_value_for_tables, valueToIndex, indexToValue, globalIdx, globalIdxLine, characValueToLineBitset,tablesLair);
-
-
-			// TODO to remove ?
-			//Loader.readTableAndBuildIndexMap(folder, file, characteristic_value_for_tables, valueToIndex, indexToValue, globalIdx);
-		}
-
-		// Raw tables aggregation
-		TreeMap<String, Table> aggregationRawTables = new TreeMap<>();
-		TreeSet<String> tableNames = new TreeSet<>();
-		for (String file: filePrdList ) {
-			Table table = new Table(file);
-			TreeMap<String, Row> valuesTable = new TreeMap<>();
-			Loader.readTableAndBuildTableAggregation(folder, file, valueToIndex, indexToValue, file, table, valuesTable);
-			tableNames.add(file);
-			aggregationRawTables.put(file, table);
-		}
-
-		LOG.info("Build index map : {}", valueToIndex);
-
-		// Build pseudo tables
-		TreeMap<String, PseudoTable> aggregationPseudoTables = new TreeMap<>();
-		TreeMap<String, List<BitSet>> memoizationPossiblesValues = new TreeMap<>();
-
-		List<String> rawTableParsed = new ArrayList<>();
-		TreeMap<String, Row> invalidValues = new TreeMap<>();
-		for ( String tableName : tableNames ) {
-			if ( aggregationPseudoTables.isEmpty() ) {
-				LOG.info("Initializing pseudoTable with the first table {} ...", tableName);
-
-				PseudoTable pseudoTable = new PseudoTable(tableName);
-				TreeMap<String, Row> values = new TreeMap<>();
-				aggregationRawTables.get(tableName).getValue().forEach((k, v) -> {
-					Row row = new Row(v.isValid(), v.getBitsetList().stream().map(b -> (BitSet) b.clone()).collect(Collectors.toList()));
-					values.put(k, row);
-				});
-				pseudoTable.setValue(values);
-				aggregationPseudoTables.put(tableName, pseudoTable);
-
-				// Update possibles values
-				updateMemoizationValuesForAll(memoizationPossiblesValues, values.keySet(), aggregationPseudoTables, tableName);
-
-				rawTableParsed.add(tableName);
-
-			} else {
-
-				// New table ( raw ) and compare with existing aggregation pseud table to see if we need to validate line or not
-
-				LOG.info("Current aggregation pseudo table : {} ", aggregationPseudoTables);
-
-
-				LOG.info("Verse table : {} dans pseudo tables ...", tableName);
-
-				Table newTableToVerse = aggregationRawTables.get(tableName);
-
-				newTableToVerse.getValue().forEach((value, row) -> {
-					if ( value.equalsIgnoreCase("B0C_4M")) {
-						System.out.println("PROBLEM");
-					}
-					System.out.println("----> incoming value : "+value);
-					for ( String parsedTable: rawTableParsed ) {
-						System.out.println("-----> Verify if value existing in " + parsedTable);
-
-						PseudoTable existingPseudoTable = aggregationPseudoTables.get(parsedTable);
-						if ( existingPseudoTable.getValue().containsKey(value) ) {
-							// OK => can add safely to possible values and validate the line
-							System.out.println("OK for already exists " + value );
-							row.setIsValid(Boolean.TRUE);
-							updateMemoizationValues(memoizationPossiblesValues, value, row.getBitsetList());
-						} else {
-
-								// Not found, check if family exist from the value
-								boolean characteristicExists = Boolean.FALSE;
-								String characteristic = getFirstSegment(value, '_');
-								for (String key : existingPseudoTable.getValue().keySet()) {
-									if (getFirstSegment(key, '_').equals(characteristic)) {
-										characteristicExists = Boolean.TRUE;
-										break;
-									}
-								}
-
-								if (!characteristicExists) {
-									// OK => can add safely to possible values and validate the line
-									System.out.println("OK, not exists (new) " + value);
-									row.setIsValid(Boolean.TRUE);
-									updateMemoizationValues(memoizationPossiblesValues, value, row.getBitsetList());
-								} else {
-									// NOK => tag the line as invalid, does not add to possible values
-									System.out.println("NOK, family " + characteristic + " exist, but not the value " + getSecondSegment(value, '_'));
-									row.setIsValid(Boolean.FALSE);
-									invalidValues.put(value, row);
-								}
-
-
-
-						}
-
-					}
-					System.out.println( " ------------------------------------------------" );
-				});
-
-
-				// Add pseudo table to the aggregation ( contains validation on each line )
-				PseudoTable tableToVerse = new PseudoTable(tableName);
-				TreeMap<String, Row> values = new TreeMap<>();
-				newTableToVerse.getValue().forEach((k, v) -> {
-					Row row = new Row(v.isValid(), v.getBitsetList().stream().map(b -> (BitSet) b.clone()).collect(Collectors.toList()));
-					values.put(k, row);
-				});
-				tableToVerse.setValue(values);
-				aggregationPseudoTables.put(tableName, tableToVerse);
-
-
-				rawTableParsed.add(tableName);
-
-				// go next table to verse
-			}
-
-		}
-
-		// fin boucle sur les tables
-		LOG.info("Possibles values : ");
-		// Map temporaire pour regrouper les valeurs par préfixe
-		TreeMap<String, List<String>> groupedValues = new TreeMap<>();
-
-		// Parcourir chaque entrée du TreeMap
-		for (Map.Entry<String, List<BitSet>> entry : memoizationPossiblesValues.entrySet()) {
-			String key = entry.getKey();
-			String prefix = key.split("_")[0];
-			String suffix = key.split("_")[1];
-
-			// Ajouter le suffixe à la liste correspondante dans le groupedValues
-			groupedValues.computeIfAbsent(prefix, k -> new ArrayList<>()).add(suffix);
-		}
-
-		// Afficher les résultats formatés
-		for (Map.Entry<String, List<String>> entry : groupedValues.entrySet()) {
-			System.out.print(entry.getKey() + ": ");
-			for (String value : entry.getValue()) {
-				System.out.print(value + " ");
+		// build graph following relationship in table
+
+		// Obtenir les tables mock
+		List<String[][]> table1 = getTable1();
+		List<String[][]> table2 = getTable2();
+		List<String[][]> table3 = getTable3();
+
+		// Initialiser le graphe
+		Graph<String, DefaultEdge> graph = new DefaultDirectedGraph<>(DefaultEdge.class);
+
+		// Ajouter les nœuds et les arêtes pour chaque table
+		Set<String> validConnections = new HashSet<>();
+		addNodesAndEdges(graph, table1);
+		addNodesAndEdges(graph, table2);
+		addNodesAndEdges(graph, table3);
+
+		// Afficher le graphe
+		System.out.println("Graph:");
+		for (String vertex : graph.vertexSet()) {
+			System.out.print(vertex + " -> ");
+			for (DefaultEdge edge : graph.outgoingEdgesOf(vertex)) {
+				System.out.print(graph.getEdgeTarget(edge) + " ");
 			}
 			System.out.println();
 		}
 
 
 
-		System.out.println("START");
+		/*
+			B0F	B0G	B0E	B0H
+			MK	01	0R	X1
+			MK	02	0L	X2
+			ZI	03	0J	X3
+			Table 2 :
 
-		// becarefull the graph is not fully reflected ALL relation properly, but you can use it to get the order enumeration
-		buildGraph(characValueToLineBitset, signature);
-		//LinkedHashSet<String> orderEnum = getOrder(List.of(signature.split(" ")), buildGraph(characValueToLineBitset, signature), valueToIndex).stream().map(k->k.split("_")[0]).collect(Collectors.toCollection(LinkedHashSet::new));
+			B0F
+			ZI
+			Table 3 :
 
+			B0F	B0G
+			ZI	01
+		 */
 
-		Enumerator enumerator = new Enumerator(List.of(signature.split(" ")), groupedValues, tablesLair);
-		enumerator.trimTables();
-		enumerator.generateCombinations();
+		// Parcourir le graphe pour générer les combinaisons valides
+		TreeMap<String, List<String>> signatureWithPossiblesValues = new TreeMap<>();
+		signatureWithPossiblesValues.put("B0F", Arrays.asList("MK", "ZI"));
+		signatureWithPossiblesValues.put("B0H", Arrays.asList("X1", "X2", "X3"));
+		signatureWithPossiblesValues.put("B0E", Arrays.asList("0R", "0L", "0J"));
 
-
-
-		// TODO => représentation
-		// map : tableName_AA_BB_CC :
-		// map carac_value : { bitset indice line }
-		// ensuite on prend la signature
-		// les valeur possible
-		// par exemple AA_00 AA_01
-		// on va dans les table qui intègre AA activer les ligne et desactiver les autres
-		// quand on desactive on retiens les element supprimé ( même si pas dans la signature )
-		// => impacte dans le reste des tables
-		// ensuite on passe à BB on fait aussi toute les valeur possible :
-		// si y'a du AA faut verifier intersection, si pas d'intersection je delete la ligne
-		// si pas de AA, je prend les BB
-		// a chaque fois je retiens les ligne supprimé pour les autres filtre progressif
-		// si j'ai une table genre AA CC, bah je prend les valeur possible de AA et CC et je verifie les intersection
+		System.out.println("Possible values (for signature) : ");
+		System.out.println(signatureWithPossiblesValues);
 
 
-		// Table 1:
-		// AA_01 : {
-		//          bitset,
-		//			valid
-		//        }
+
+		System.out.println("Order enumeration : ");
+		LinkedList<String> orderedNode = getOrderEnumeration(graph, signatureWithPossiblesValues);
+		LinkedHashSet<String> orderedNodeSimplified = orderedNode.stream().map(o -> o.split("=")[0]).collect(Collectors.toCollection(LinkedHashSet::new));
+		System.out.println(orderedNodeSimplified);
+		System.out.println("Detail : " + orderedNode);
 
 
+		System.out.println("Combination generation : ");
+		generateCombination(graph, orderedNodeSimplified, signatureWithPossiblesValues);
+
+		/*
+		System.out.println("Combination generation : ");
+		var combinations = generateCombination(graph, orderedNodeSimplified, signatureWithPossiblesValues);
+		System.out.println("Valid Combinations:");
+		for (Set<String> combination : combinations) {
+			System.out.println(combination);
+		}*/
+
+
+		/*
+		List<List<String>> combinations = generateCombinations(graph, signature);
+
+		System.out.println("Combinations for signature " + signature + ":");
+		for (List<String> combination : combinations) {
+			System.out.println(combination);
+		}*/
+
+		/*
+		B0F :
+
+		MK
+				ZI
+		B0G :
+
+		01
+		02
+		03
+		B0E :
+
+		0R
+		0L
+		0J
+		B0H :
+
+		X1
+				X2
+		X3
+		*/
 
 	}
 }

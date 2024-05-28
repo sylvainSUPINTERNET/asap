@@ -138,8 +138,9 @@ public class P22Table {
             "REG\tAM AP AQ AR";
 
     public final static String TABLES =
-            //"PBV1_B0C_B0F_B0G\n" +
-            "PBV_test\n" +
+            //"PBV1_B0C_B0F_B0G\n" + ===> FAM_1PP2-Prd-PBV1_B0C_B0F_B0G_MAT_B0C_B0F_B0G.txt on l'ignore car y'a un pre traitement a priori
+            //"PBV_test\n" +
+            "PBV_TEST_B0C_B0F_B0G\n"+
             "FAM_1PP2_AFFEC_B0P\n" +
             "FAM_1PP2_B0H_D2A\n" +
             "FAM_1PP2_B0M_B0N\n" +

@@ -3,6 +3,8 @@ package com.go.asap.go;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultEdge;
@@ -22,11 +24,67 @@ public class Enumerator {
             possiblesValuesFilteredBySignature.put(charInSignature, possiblesValues.get(charInSignature));
         }
 
+        System.out.println("Signature " + this.signature);
         System.out.println("Possibles values ");
         System.out.println(possiblesValuesFilteredBySignature);
     }
 
     public void trimTables() {
+
+
+        TreeMap<String, TreeMap<String, TableRow>> deletedValues = new TreeMap<>();
+
+        this.signature.forEach((signatureCharacteristic) -> {
+            List<String> values = this.possiblesValuesFilteredBySignature.get(signatureCharacteristic);
+            System.out.println();
+            System.out.println("Checking for "+ signatureCharacteristic + " : " + values);
+
+
+            this.tablesLair.entrySet().stream().forEach((entry)-> {
+                String tableName = entry.getKey();
+                TreeMap<String, TableRow> table = entry.getValue();
+
+                String[] tableNameSplit = tableName.split("_");
+
+
+                if (Arrays.asList(tableNameSplit).contains(signatureCharacteristic)
+                        // TODO debug
+                        && signatureCharacteristic.equalsIgnoreCase("B0C")
+                ) {
+
+                    System.out.println(signatureCharacteristic + " present in table : " + tableName + " for " + signatureCharacteristic);
+
+
+                    table.keySet().forEach(tableKey-> {
+                        System.out.println("-- " + tableKey);
+
+                        var splitTableKey = Arrays.stream(tableKey.split("_")).findFirst();
+                        if ( splitTableKey.isPresent() && splitTableKey.get().equalsIgnoreCase(signatureCharacteristic)) {
+                            System.out.println("---> Must activate : " + tableKey);
+                            table.get(tableKey).setIsValid(Boolean.TRUE);
+                        }
+
+
+                    });
+                }
+
+
+                // TODO debug
+                if (Arrays.asList(tableNameSplit).contains(signatureCharacteristic)
+                        // TODO debug
+                        && signatureCharacteristic.equalsIgnoreCase("B0F")
+                ) {
+
+                }
+
+            });
+
+
+
+
+        });
+
+
      // carac donnée AA BB CC
         // je prend les valeur possible pour chaque carac
         // je commence par AA

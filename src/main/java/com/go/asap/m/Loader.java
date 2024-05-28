@@ -274,7 +274,7 @@ public class Loader {
                             String line;
                             while ((line = reader.readLine()) != null) {
                                 globalLineIdx.getAndIncrement();
-                                System.out.println("LINE : " + globalLineIdx.get());
+                                //System.out.println("LINE : " + globalLineIdx.get());
 
                                 String[] values = line.split("\\s+");
                                 if (values.length != headers.length) {
