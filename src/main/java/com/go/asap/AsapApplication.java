@@ -1241,6 +1241,7 @@ public class AsapApplication implements CommandLineRunner {
 	} */
 
 
+	// take 1 line as parameter and init the graph
 	private static void addNodesAndEdges(Graph<String, DefaultEdge> graph, List<String[][]> table) {
 		Set<String> validConnections = new HashSet<>();
 
@@ -1264,6 +1265,7 @@ public class AsapApplication implements CommandLineRunner {
 		}
 	}
 
+	// take 1 line and try to merge with existing graph following relation ( charac / value )
 	private static void mergeTableIntoGraph(Graph<String, DefaultEdge> graph, List<String[][]> table) {
 		for (String[][] row : table) {
 			if (isRowValid(row, graph)) {
@@ -1433,16 +1435,20 @@ public class AsapApplication implements CommandLineRunner {
 				.filter(o -> signatureWithPossiblesValues.containsKey(o.split("=")[0]))
 				.collect(Collectors.toCollection(LinkedList::new));
 
+		String firstNodeFromEnum = filterOrderNodes.getFirst().split("=")[0];
+
 		for (String orderNode : filterOrderNodes) {
-			if (orderNode.startsWith("B0F")) {  // Change condition as needed
-				System.out.println("Visit paths for " + orderNode);
+			//if (orderNode.startsWith("B0F")) {  // Change condition as needed
+			//if (orderNode.startsWith("AA")) {
+			if ( orderNode.startsWith(firstNodeFromEnum) ) {
+				System.out.println("Find possible paths for " + orderNode);
 
 				List<String> possiblesValueForOrderNode = signatureWithPossiblesValues.get(orderNode.split("=")[0]);
 				System.out.println("--> " + possiblesValueForOrderNode);
 
 				for (String possibleValue : possiblesValueForOrderNode) {
 					String startNode = orderNode.split("=")[0] + "=" + possibleValue;
-					System.out.println("-----> Explore path for " + startNode);
+					System.out.println("-----> Starting exploration path for " + startNode);
 					HashSet<String> visited = new HashSet<>();
 					Map<String, String> nodeValues = new HashMap<>();
 					explorePath(graph, startNode, visited, nodeValues, validCombinations, filterOrderNodes, signatureWithPossiblesValues);
@@ -1452,9 +1458,9 @@ public class AsapApplication implements CommandLineRunner {
 		}
 
 		// Afficher les combinaisons valides
-		System.out.println("Valid Combinations:");
+		System.out.println("Valid Combinations: " + validCombinations.size());
 		for (Set<String> combination : validCombinations) {
-			System.out.println(combination);
+			System.out.println(combination.stream().sorted().map(c->c.replace("_","")).collect(Collectors.toList()).toString());
 		}
 	}
 
@@ -1470,7 +1476,7 @@ public class AsapApplication implements CommandLineRunner {
 
 		// Vérifier si toutes les caractéristiques de la signature sont visitées
 		if (nodeValues.keySet().containsAll(signatureWithPossiblesValues.keySet())) {
-			// Filtrer les nœuds visités pour ne garder que ceux correspondant à la signature
+			// Filtrer les nœuds visités pour ne garder que ceux correspondant à la signature!
 			Set<String> validCombination = new HashSet<>();
 			for (String node : visited) {
 				String key = node.split("=")[0];
@@ -1479,6 +1485,9 @@ public class AsapApplication implements CommandLineRunner {
 				}
 			}
 			validCombinations.add(validCombination);
+
+			// TODO => probleme ici il faut arrêter le travel si on a deja trouver et revenir au premier node pour explorer d'autre en repartant de code point
+
 			return; // Arrêter l'exploration après avoir trouvé une combinaison valide
 		}
 
@@ -1495,8 +1504,6 @@ public class AsapApplication implements CommandLineRunner {
 			}
 		}
 	}
-
-
 
 
 	/*
@@ -1584,8 +1591,55 @@ public class AsapApplication implements CommandLineRunner {
 	@Override
 	public void run(String... args) throws Exception {
 
-		// build graph following relationship in table
+		String signature = "B0C B0F"; //"B0F B0E"; //"B0C B0F B0G B0H DAQ"; //"B0C B0F B0G B0H DAQ"; //"AA BB CC"; //"AA BB CC"; //"B0C B0F B0G B0H DAQ"; //"B0E B0F DFH REG"; //"B0E B0H B0J";
 
+		String tables = "P22";//"enumerator_test"; // "m"
+		String folder = "P22"; //"enumerator_test"; // "m"
+
+		ObjectArrayList<String> filePrdList = new ObjectArrayList<>();
+		if ( tables.equalsIgnoreCase("ZZK9") || tables.equalsIgnoreCase("P22") || tables.equalsIgnoreCase("test") || tables.equalsIgnoreCase("test2") || tables.equalsIgnoreCase("tmp") || tables.equalsIgnoreCase("m") || tables.equalsIgnoreCase("spe")  || tables.equalsIgnoreCase("m2") || tables.equalsIgnoreCase("enumerator_test")) {
+			if ( tables.equalsIgnoreCase("ZZK9") )
+				filePrdList.addAll(Arrays.stream(ZZK9Table.TABLES.split("\n")).toList());
+			else if ( tables.equalsIgnoreCase("P22") ) {
+				filePrdList.addAll(Arrays.stream(P22Table.TABLES.split("\n")).toList());
+			} else if ( tables.equalsIgnoreCase("spe") )  {
+				filePrdList.addAll(Arrays.stream(TestTable.TEST_TABLES_SPE.split("\n")).toList());
+			} else if (tables.equalsIgnoreCase("enumerator_test")) {
+				filePrdList.addAll(Arrays.stream(TestTable.TEST_TABLES_ENUMERATOR.split("\n")).toList());
+			} else {
+				filePrdList.addAll(Arrays.stream(TestTable.TEST_TABLES.split("\n")).toList());
+			}
+		} else {
+			throw new IllegalArgumentException("Table not supported, only support P22 ZZK9");
+		}
+
+
+
+		Graph<String, DefaultEdge> graph = new DefaultDirectedGraph<>(DefaultEdge.class);
+
+		List<List<String[][]>> allTables = new ArrayList<>();
+		filePrdList.forEach( file -> {
+			Loader.loadTableForGraph(folder, file, allTables);
+		});
+
+		// Load table for graph
+		AtomicInteger i = new AtomicInteger(0);
+		allTables.forEach((table)-> {
+			if ( i.get() == 0 ) {
+				//System.out.println("Table name : " + filePrdList.get(i.get()-1) + " - " + table.size());
+				addNodesAndEdges(graph, table);
+				//System.out.println(graph);
+			} else {
+				//System.out.println("Table name : " + filePrdList.get(i.get()-1) + " - " + table.size());
+				//mergeTableIntoGraph(graph, table);
+				addNodesAndEdges(graph, table);
+				//System.out.println(graph);
+			}
+			i.getAndIncrement();
+		});
+
+
+		/* // MOCK
 		// Obtenir les tables mock
 		List<String[][]> table1 = getTable1();
 		List<String[][]> table2 = getTable2();
@@ -1604,9 +1658,11 @@ public class AsapApplication implements CommandLineRunner {
         mergeTableIntoGraph(graph, table3);
         mergeTableIntoGraph(graph, table4);
         mergeTableIntoGraph(graph, table5);
+		 */
 
         System.out.println("Build graph : ");
         System.out.println(graph);
+
 
 		// Afficher le graphe
 		// TODO => probleme ici
@@ -1639,13 +1695,41 @@ public class AsapApplication implements CommandLineRunner {
 
 		// Parcourir le graphe pour générer les combinaisons valides
 		TreeMap<String, List<String>> signatureWithPossiblesValues = new TreeMap<>();
+		TreeMap<String, List<String>> possiblesValues = new TreeMap<>();
+
+		/* MOCK
 		signatureWithPossiblesValues.put("B0F", Arrays.asList("MK", "ZI"));
 		signatureWithPossiblesValues.put("B0H", Arrays.asList("X1", "X2", "X3"));
 		signatureWithPossiblesValues.put("B0E", Arrays.asList("0R", "0L", "0J"));
+		 */
+
+		TreeMap<String, TreeSet<String>> pos = new TreeMap<>();
+		graph.vertexSet().forEach( vertex -> {
+			String characteristic = vertex.split("=")[0];
+			String value = vertex.split("=")[1];
+			if ( pos.containsKey(characteristic)) {
+				pos.get(characteristic).add(value);
+			} else {
+				TreeSet<String> values = new TreeSet<>();
+				values.add(value);
+				pos.put(characteristic, values);
+			}
+		});
+
+		pos.forEach((k,v) -> {
+			if ( signature.contains(k) ) {
+				signatureWithPossiblesValues.put(k, new ArrayList<>(v));
+				possiblesValues.put(k, new ArrayList<>(v));
+			} else {
+				possiblesValues.put(k, new ArrayList<>(v));
+			}
+		});
+
+		System.out.println("Possible values ( global ) ");
+		possiblesValues.forEach((key, value) -> System.out.println(key + " : " + value));
 
 		System.out.println("Possible values (for signature) : ");
-		System.out.println(signatureWithPossiblesValues);
-
+		signatureWithPossiblesValues.forEach((key, value) -> System.out.println(key + " : " + value));
 
 
 		System.out.println("Order enumeration : ");

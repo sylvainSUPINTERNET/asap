@@ -328,4 +328,85 @@ public class Loader {
         }
     }
 
+    /*
+    Expected format for each table :
+    table1 = {ArrayList@4352}  size = 3
+     0 = {String[4][]@4356}
+      0 = {String[2]@4359} ["B0F", "MK"]
+      1 = {String[2]@4360} ["B0G", "01"]
+      2 = {String[2]@4361} ["B0E", "0R"]
+      3 = {String[2]@4362} ["B0H", "X1"]
+     */
+    public static void loadTableForGraph(String folder, String scopeFilter, List<List<String[][]>> allTables) {
+        ClassLoader cl = Thread.currentThread().getContextClassLoader();
+        List<URL> resources;
+        try {
+            Enumeration<URL> urls = cl.getResources(folder);
+            resources = Collections.list(urls);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        for (URL url : resources) {
+            try {
+                URI uri = url.toURI();
+                Path path = Paths.get(uri);
+                try (Stream<Path> stream = Files.walk(path)) {
+                    Pattern pattern = Pattern.compile(".*" + Pattern.quote(scopeFilter.replace("*", "")) + ".*\\.txt");
+                    List<Path> files = stream.filter(Files::isRegularFile)
+                            .filter(f -> pattern.matcher(f.getFileName().toString()).matches())
+                            .collect(Collectors.toList());
+
+                    System.out.println("Files matching pattern: " + files);
+
+
+
+                    List<String[][]> table = new ArrayList<>();
+
+                    for (Path file : files) {
+
+                        System.out.println("Reading file : " + file);
+
+                        try (BufferedReader reader = Files.newBufferedReader(file)) {
+                            // Read first line to get column names
+                            String headerLine = reader.readLine();
+                            if (headerLine == null) {
+                                continue;
+                            }
+                            String[] headers = headerLine.split("\\s+");
+
+                            String line;
+                            while ((line = reader.readLine()) != null) {
+
+                                String[][] tableLine = new String[headers.length][2];
+
+                                String[] values = line.split("\\s+");
+                                if (values.length != headers.length) {
+                                    System.out.println("Mismatch between headers and values in file: " + file);
+                                    continue;
+                                }
+                                for (int i = 0; i < headers.length; i++) {
+                                    String combinedValue = headers[i] + "_" + values[i];
+                                    //System.out.println("Adding value: " + combinedValue);
+                                    //System.out.println(combinedValue);
+                                    tableLine[i][0] = headers[i];
+                                    tableLine[i][1] = values[i];
+                                }
+                                table.add(tableLine);
+                            }
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+
+                        allTables.add(table);
+
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
 }
