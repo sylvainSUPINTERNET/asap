@@ -1166,8 +1166,41 @@ public class AsapApplication implements CommandLineRunner {
 		return table3;
 	}
 
+    public static List<String[][]> getTable4() {
+        List<String[][]> table4 = new ArrayList<>();
+        table4.add(new String[][]{
+                {"B0F", "ZI"},
+                {"B0G", "03"},
+                {"CCC", "00"}
+        });
+        return table4;
+    }
 
-	// apply relationship in same table
+    public static List<String[][]> getTable5() {
+        List<String[][]> table5 = new ArrayList<>();
+        table5.add(new String[][]{
+                {"B0F", "ZI"},
+                {"B0G", "04"},
+                {"CCC", "99"}
+        });
+		table5.add(new String[][]{
+				{"B0F", "ZI"},
+				{"B0G", "03"},
+				{"CCC", "11"}
+		});
+		table5.add(new String[][]{
+				{"B0F", "ZI"},
+				{"B0G", "03"},
+				{"CCC", "00"},
+				{"EXM","MM"},
+				{"B0E","0J"},
+				{"B0H","X3"}
+		});
+        return table5;
+    }
+
+
+    // apply relationship in same table
 	// we cannot have "bridge" between table to build a valid path §
 
 	/*
@@ -1214,7 +1247,7 @@ public class AsapApplication implements CommandLineRunner {
 		for (String[][] row : table) {
 			String previousNode = null;
 			for (String[] cv : row) {
-				String node =  cv[0] + "=" + cv[1];
+				String node = cv[0] + "=" + cv[1];
 				graph.addVertex(node);
 				if (previousNode != null) {
 					validConnections.add(previousNode + "->" + node);
@@ -1229,6 +1262,69 @@ public class AsapApplication implements CommandLineRunner {
 				graph.addEdge(nodes[0], nodes[1]);
 			}
 		}
+	}
+
+	private static void mergeTableIntoGraph(Graph<String, DefaultEdge> graph, List<String[][]> table) {
+		for (String[][] row : table) {
+			if (isRowValid(row, graph)) {
+				addNodesAndEdges(graph, Collections.singletonList(row));
+			}
+		}
+	}
+
+	private static boolean isRowValid(String[][] row, Graph<String, DefaultEdge> graph) {
+		if (row.length == 0) return false;
+
+		// Check if the row contains only unknown characters
+		for (String[] cv : row) {
+			if (!cv[1].equals("unknown")) {
+				break;
+			}
+			return false;
+		}
+
+		// Validate each node's existence and value
+		for (String[] cv : row) {
+			String node = cv[0] + "=" + cv[1];
+			if (!graphContainsNodeWithValidValue(graph, cv[0], cv[1])) {
+				return false;
+			}
+		}
+
+		// Validate connections within the graph
+		String previousNode = null;
+		for (String[] cv : row) {
+			String node = cv[0] + "=" + cv[1];
+			if (previousNode != null) {
+				if (!isConnectionValid(previousNode, node, graph)) {
+					return false;
+				}
+			}
+			previousNode = node;
+		}
+
+		return true;
+	}
+
+	private static boolean graphContainsNodeWithValidValue(Graph<String, DefaultEdge> graph, String key, String value) {
+		boolean nodeExists = false;
+		for (String vertex : graph.vertexSet()) {
+			if (vertex.startsWith(key + "=")) {
+				nodeExists = true;
+				if (vertex.equals(key + "=" + value)) {
+					return true;
+				}
+			}
+		}
+		return !nodeExists;
+	}
+
+	private static boolean isConnectionValid(String from, String to, Graph<String, DefaultEdge> graph) {
+		// A valid connection is one that does not contradict existing connections
+		if (graph.containsVertex(from) && graph.containsVertex(to)) {
+			return graph.containsEdge(from, to);
+		}
+		return true;
 	}
 
 
@@ -1494,17 +1590,27 @@ public class AsapApplication implements CommandLineRunner {
 		List<String[][]> table1 = getTable1();
 		List<String[][]> table2 = getTable2();
 		List<String[][]> table3 = getTable3();
+        List<String[][]> table4 = getTable4();
+        List<String[][]> table5 = getTable5();
 
 		// Initialiser le graphe
 		Graph<String, DefaultEdge> graph = new DefaultDirectedGraph<>(DefaultEdge.class);
 
 		// Ajouter les nœuds et les arêtes pour chaque table
-		Set<String> validConnections = new HashSet<>();
 		addNodesAndEdges(graph, table1);
-		addNodesAndEdges(graph, table2);
-		addNodesAndEdges(graph, table3);
+
+		// merge table with existing graph, considéring rules relation
+        mergeTableIntoGraph(graph, table2);
+        mergeTableIntoGraph(graph, table3);
+        mergeTableIntoGraph(graph, table4);
+        mergeTableIntoGraph(graph, table5);
+
+        System.out.println("Build graph : ");
+        System.out.println(graph);
 
 		// Afficher le graphe
+		// TODO => probleme ici
+		// On met des arrête ou y'en a pas par exemple table 1 et table 3 une arrête se creer sur B0G_01 pour BOF_ZI et BOF_MK alors que c'est pas possible !
 		System.out.println("Graph:");
 		for (String vertex : graph.vertexSet()) {
 			System.out.print(vertex + " -> ");
